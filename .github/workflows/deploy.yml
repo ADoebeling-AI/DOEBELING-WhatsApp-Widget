@@ -1,4 +1,5 @@
-# Deploys the website and the notification service to the web server via rsync over SSH.
+# Runs the tests, then deploys the website and the notification service to the web server
+# via rsync over SSH.
 # Setup: see "Deployment" in README.md.
 
 name: Deploy
@@ -16,7 +17,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: production
@@ -30,11 +35,6 @@ jobs:
       DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Check syntax
-        run: |
-          for file in api/*.php addons/php/*.php; do php -l "$file"; done
-          node --check whatsapp-widget.js
 
       - name: Check deployment settings
         id: settings
@@ -83,7 +83,7 @@ jobs:
           rsync --recursive --links --checksum --compress --delete --itemize-changes \
             --chmod=D755,F644 \
             --exclude='.git/' --exclude='.github/' --exclude='.gitignore' \
-            --exclude='README.md' --exclude='addons/' --exclude='api/config.sample.php' \
+            --exclude='README.md' --exclude='addons/' --exclude='tests/' --exclude='api/config.sample.php' \
             --filter='P /.htaccess' --filter='P /.user.ini' --filter='P /.well-known/' \
             --filter='P /dpa.html' --filter='P /api/config.php' \
             -e "ssh -p ${DEPLOY_PORT:-22} -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
