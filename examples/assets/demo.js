@@ -3,8 +3,9 @@
  *
  * The examples use the placeholder number +49 000 0000000. So that nobody is
  * sent to an invalid WhatsApp chat, this script shows the generated WhatsApp
- * link in a small log instead of opening it. It also logs all widget events,
- * so you can see what happens and how to use them for your own code.
+ * link in a small log instead of opening it. Requests to the PHP add-on are
+ * shown instead of sent, too. It also logs all widget events, so you can see
+ * what happens and how to use them for your own code.
  */
 (() => {
   const PLACEHOLDER_PHONE = '490000000000';
@@ -40,12 +41,28 @@
     return originalOpen(url, ...args);
   };
 
+  // Example 4 uses the PHP add-on, which does not run on GitHub Pages.
+  // Show the request instead of sending it.
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = (resource, options = {}) => {
+    if (String(resource).endsWith('whatsapp-notify.php')) {
+      write(`POST ${resource}`, `(demo, not sent) – body: ${String(options.body || '')}`);
+      return Promise.resolve(new Response(null, { status: 204 }));
+    }
+    return originalFetch(resource, options);
+  };
+
+  document.addEventListener('whatsapp-widget:notify', (event) => {
+    write('whatsapp-widget:notify', JSON.stringify(event.detail));
+  });
+
   document.addEventListener('whatsapp-widget:open', (event) => {
     write('whatsapp-widget:open', event.detail.auto ? '(auto-open)' : '(by visitor)');
   });
   document.addEventListener('whatsapp-widget:close', () => write('whatsapp-widget:close', ''));
   document.addEventListener('whatsapp-widget:send', (event) => {
-    write('whatsapp-widget:send', JSON.stringify(event.detail.message));
+    const { message, phone } = event.detail;
+    write('whatsapp-widget:send', JSON.stringify(phone ? { message, phone } : message));
   });
 
   document.addEventListener('DOMContentLoaded', () => document.body.append(log));
