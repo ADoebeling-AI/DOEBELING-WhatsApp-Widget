@@ -251,53 +251,83 @@ The widget uses modern JavaScript (ES2018) and does not support Internet Explore
 ## Running the site and the notification service
 
 The repository is the complete website of `whatsapp-widget.doebeling.dev`: configurator (`index.html`),
-examples, widget and the notification service in [`api/`](api). To run it on your own web server:
+examples, widget and the notification service in [`api/`](api). It runs on Hetzner Webhosting; the
+examples below use its paths. Any web server with PHP works the same way.
 
-1. Upload the files to the web root. You need PHP 8.1+ with the `sodium` extension and a working `mail()`.
-2. Copy [`api/config.sample.php`](api/config.sample.php) to `whatsapp-widget-config.php` in the directory
-   **above** the web root and fill it in. Create the secret with
+Recommended layout (the web root of the subdomain is `htdocs`):
+
+```text
+/usr/www/users/<name>/whatsapp-widget.doebeling.dev/
+├── htdocs/                        ← web root, filled by the deploy workflow
+├── whatsapp-widget-config.php     ← configuration with the secret, not reachable from the web
+└── whatsapp-widget-storage/       ← rate limits and revoked keys, writable for PHP
+```
+
+1. In konsoleH, point the subdomain to `…/whatsapp-widget.doebeling.dev/htdocs`, select PHP 8.1 or newer
+   and switch on HTTPS. PHP needs the `sodium` extension (included in PHP 8) and a working `mail()`.
+2. Copy [`api/config.sample.php`](api/config.sample.php) to `whatsapp-widget-config.php` **next to**
+   `htdocs` and fill it in. The widget finds it there automatically. Create the secret with
    `php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"`.
-3. Create the storage directory from the configuration (outside the web root, writable for PHP).
-4. Set up SPF, DKIM and DMARC for the sender address, and provide the data processing agreement (`dpa_url`).
+3. Create `whatsapp-widget-storage/` next to it (the sample configuration already points there).
+   If the directory above `htdocs` is reachable through another domain of your account, add a
+   `.htaccess` with `Require all denied` to it.
+4. Create the sender mailbox or alias (`sender` in the configuration) and set up SPF, DKIM and DMARC
+   for its domain.
+5. Provide the data processing agreement (`dpa_url`, see #13).
 
-[`api/.htaccess`](api/.htaccess) blocks direct access to `lib.php` and a local `config.php` on Apache.
+[`api/.htaccess`](api/.htaccess) blocks direct access to `lib.php` and a local `config.php`.
 
 ### Deployment
 
-Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml): it checks the
-PHP and JavaScript syntax and copies the site to the server with rsync over SSH. You can also start it
-by hand under *Actions → Deploy → Run workflow*. Until the secrets are set, the workflow deploys nothing
-and only shows a notice.
+Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml): it runs the
+tests and copies `htdocs` to the server with rsync over SSH. You can also start it by hand under
+*Actions → Deploy → Run workflow*. Until the secrets are set, the workflow deploys nothing and only
+shows a notice.
 
-1. Create a key pair only for deployments, without passphrase:
+1. Check that SSH works for your account and that the server has rsync. On Hetzner Webhosting, SSH
+   uses port 222 and your account name as user:
+   `ssh -p 222 <name>@www<NNN>.your-server.de rsync --version`
+2. Create a key pair only for deployments, without passphrase:
    `ssh-keygen -t ed25519 -N "" -C "github-deploy whatsapp-widget" -f deploy_key`
-2. Add `deploy_key.pub` to the SSH keys of the web server account.
-3. Get the host key of the server and compare its fingerprint with the one your hoster shows:
-   `ssh-keyscan -p 22 your-server.example`
-4. In the repository settings, add these secrets under *Settings → Secrets and variables → Actions*
+3. Allow the key on the server: `ssh-copy-id -p 222 -i deploy_key.pub <name>@www<NNN>.your-server.de`
+4. Get the host key and compare its fingerprint with the one konsoleH shows:
+   `ssh-keyscan -p 222 www<NNN>.your-server.de`
+5. In the repository settings, add these secrets under *Settings → Secrets and variables → Actions*
    (or as secrets of the environment `production`):
 
    | Secret | Example | Notes |
    | --- | --- | --- |
-   | `DEPLOY_HOST` | `www123.your-server.de` | SSH host name |
-   | `DEPLOY_PORT` | `222` | Optional, default `22` |
-   | `DEPLOY_USER` | `name` | SSH user |
-   | `DEPLOY_PATH` | `/usr/www/users/name/whatsapp-widget` | Absolute path of the web root of the site, at least three levels deep |
-   | `DEPLOY_SSH_KEY` | content of `deploy_key` | Private key from step 1 |
-   | `DEPLOY_KNOWN_HOSTS` | output of step 3 | The workflow refuses unknown host keys |
+   | `DEPLOY_HOST` | `www123.your-server.de` | Server name from konsoleH |
+   | `DEPLOY_PORT` | `222` | Hetzner Webhosting; default is `22` |
+   | `DEPLOY_USER` | `name` | Account name |
+   | `DEPLOY_PATH` | `/usr/www/users/name/whatsapp-widget.doebeling.dev/htdocs` | Web root of the site, absolute, at least three levels deep |
+   | `DEPLOY_SSH_KEY` | content of `deploy_key` | Private key from step 2 |
+   | `DEPLOY_KNOWN_HOSTS` | output of step 4 | The workflow refuses unknown host keys |
 
-5. Delete `deploy_key` from your computer after you have stored it as a secret.
+6. Delete `deploy_key` from your computer after you have stored it as a secret.
 
-What the workflow copies: everything except `.git/`, `.github/`, `README.md`, `addons/` and
-`api/config.sample.php`. It deletes files on the server that are no longer in the repository, but never
-`.htaccess`, `.user.ini`, `.well-known/`, `dpa.html` and `api/config.php` in the web root. Keep the
-configuration with the secret and the storage directory outside the web root anyway.
+What the workflow copies: everything except `.git/`, `.github/`, `tests/`, `README.md`, `addons/` and
+`api/config.sample.php`. It deletes files in `htdocs` that are no longer in the repository, but never
+`.htaccess`, `.user.ini`, `.well-known/`, `dpa.html` and `api/config.php`. The configuration and the
+storage directory lie outside `htdocs`, so rsync never touches them.
 
 ## Contributing
 
 Issues and pull requests are welcome. The widget is a single file without build step:
 [`whatsapp-widget.js`](whatsapp-widget.js). To try your changes, start PHP's built-in server in the
 repository (`php -S 127.0.0.1:8080`) and open the configurator or the examples.
+
+Tests: [`tests/`](tests) contains browser tests (Playwright) for the widget, the PHP script, the
+notification service and the configurator. They start their own PHP servers with a test configuration
+and catch all mails, so nothing is sent. They run on every pull request with PHP 8.1 and 8.4, and before
+every deployment. To run them locally (Node.js 18+, PHP 8.1+ with `sodium`):
+
+```sh
+cd tests
+npm ci
+npx playwright install chromium
+npm test
+```
 
 ## License
 
