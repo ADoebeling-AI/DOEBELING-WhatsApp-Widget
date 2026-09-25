@@ -171,9 +171,13 @@
         <h2 data-i18n="code.title">Your code</h2>
         <p class="hint" data-i18n-html="code.hint">Paste it into your website, before <code>&lt;/body&gt;</code>. The preview is in the corner of this page.</p>
         <pre><code id="snippet"></code></pre>
+        <label class="check" id="pin-row" hidden><input type="checkbox" id="f-pin">
+          <span><span data-i18n="pin.label">Pin the exact version</span> <span id="pin-version"></span>
+            <span class="hint" data-i18n="pin.hint">(with integrity check; you install updates yourself)</span></span>
+        </label>
         <p><button class="button" type="button" id="copy" data-i18n="copy.button">Copy code</button> <span class="status" id="copy-status" aria-live="polite"></span></p>
       </div>
-      <p class="note" data-i18n-html="selfHost">For the strictest privacy, <a href="whatsapp-widget.js" download>download whatsapp-widget.js</a>,
+      <p class="note" data-i18n-html="selfHost">For the strictest privacy, <a href="v2/whatsapp-widget.js" download>download whatsapp-widget.js</a>,
         host it yourself and change <code>src</code>. Then the visitor's browser loads nothing from another server.</p>
       <p class="status" id="preview-status" aria-live="polite"></p>
     </div>
@@ -189,7 +193,9 @@
 <script src="whatsapp-widget.js"></script>
 <script>
 (() => {
-  const SCRIPT_URL = 'https://wa-widget.doebeling.de/whatsapp-widget.js';
+  const BASE_URL = 'https://wa-widget.doebeling.de';
+  const MAJOR = 2;
+  let release = null; // { version, integrity } of the newest v2 release, from versions.json
 
   // Texts of this page. Entries used with data-i18n-html are trusted markup from this file only.
   const TEXTS = {
@@ -254,7 +260,9 @@
       'copy.button': 'Copy code',
       'copy.done': 'Copied.',
       'copy.manual': 'Press Ctrl+C / ⌘+C to copy.',
-      'selfHost': 'For the strictest privacy, <a href="whatsapp-widget.js" download>download whatsapp-widget.js</a>, host it yourself and change <code>src</code>. Then the visitor’s browser loads nothing from another server.',
+      'pin.label': 'Pin the exact version',
+      'pin.hint': '(with integrity check; you install updates yourself)',
+      'selfHost': 'For the strictest privacy, <a href="v2/whatsapp-widget.js" download>download whatsapp-widget.js</a>, host it yourself and change <code>src</code>. Then the visitor’s browser loads nothing from another server.',
       'footer.source': 'Source code',
       'footer.imprint': 'Imprint',
       'footer.privacy': 'Privacy policy',
@@ -332,7 +340,9 @@
       'copy.button': 'Code kopieren',
       'copy.done': 'Kopiert.',
       'copy.manual': 'Mit Strg+C / ⌘+C kopieren.',
-      'selfHost': 'Für maximalen Datenschutz <a href="whatsapp-widget.js" download>lade whatsapp-widget.js herunter</a>, hoste die Datei selbst und ändere <code>src</code>. Dann lädt der Browser deiner Besucher nichts von einem fremden Server.',
+      'pin.label': 'Exakte Version festschreiben',
+      'pin.hint': '(mit Integritätsprüfung; Updates spielst du selbst ein)',
+      'selfHost': 'Für maximalen Datenschutz <a href="v2/whatsapp-widget.js" download>lade whatsapp-widget.js herunter</a>, hoste die Datei selbst und ändere <code>src</code>. Dann lädt der Browser deiner Besucher nichts von einem fremden Server.',
       'footer.source': 'Quellcode',
       'footer.imprint': 'Impressum',
       'footer.privacy': 'Datenschutzerklärung',
@@ -421,7 +431,11 @@
     const mode = notifyMode();
     if (mode === 'hosted') attributes['site-key'] = input['site-key'].value.trim() || t('siteKey.pending');
     if (mode === 'own') attributes['notify-url'] = input['notify-url'].value.trim() || '/whatsapp-notify.php';
-    const lines = [`<script src="${SCRIPT_URL}"`];
+    const pinned = release && $('f-pin').checked;
+    const lines = pinned
+      ? [`<script src="${BASE_URL}/v${release.version}/whatsapp-widget.js"`,
+        `        integrity="${release.integrity}"`, '        crossorigin="anonymous"']
+      : [`<script src="${BASE_URL}/v${MAJOR}/whatsapp-widget.js"`];
     for (const [name, value] of Object.entries(attributes)) lines.push(`        data-${name}="${escapeHtml(value)}"`);
     lines.push('        defer></' + 'script>');
     $('snippet').textContent = lines.join('\n');
@@ -555,6 +569,21 @@
       // ignore a broken link; the key is also in the e-mail
     }
   }
+
+  // Released versions (created at deployment, see tools/build-site.sh).
+  fetch('versions.json', { credentials: 'omit' })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((versions) => {
+      const version = versions && versions.majors && versions.majors[MAJOR];
+      const info = version && versions.versions[version];
+      if (!info || !/^sha384-[A-Za-z0-9+/=]+$/.test(info.integrity)) return;
+      release = { version, integrity: info.integrity };
+      $('pin-version').textContent = `(v${version})`;
+      $('pin-row').hidden = false;
+      renderSnippet();
+    })
+    .catch(() => {});
+  $('f-pin').addEventListener('change', renderSnippet);
 
   setLanguage(initialLanguage(), false);
   restoreSetup();

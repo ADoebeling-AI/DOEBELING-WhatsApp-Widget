@@ -401,7 +401,8 @@ function waw_parse_widget_options(string $json): array
 
 function waw_snippet(array $options, string $siteKey): string
 {
-    $lines = ['<script src="' . waw_config()['base_url'] . '/whatsapp-widget.js"'];
+    // The major version URL gets fixes automatically (see README, "Versions").
+    $lines = ['<script src="' . waw_config()['base_url'] . '/v2/whatsapp-widget.js"'];
     foreach ($options + ['site-key' => $siteKey] as $name => $value) {
         $lines[] = '        data-' . $name . '="' . waw_html((string) $value) . '"';
     }

@@ -38,6 +38,7 @@ jobs:
         run: |
           for file in api/*.php addons/php/*.php; do php -l "$file"; done
           node --check whatsapp-widget.js
+          bash -n tools/build-site.sh
 
       - name: Install Playwright
         working-directory: tests
