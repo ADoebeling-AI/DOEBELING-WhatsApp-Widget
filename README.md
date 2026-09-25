@@ -9,6 +9,8 @@ but it only opens WhatsApp (app or WhatsApp Web) with the visitor's message alre
 - **Open it your way.** Floating button, auto-open after a few seconds, or your own buttons and links.
 - **Accessible.** Keyboard support, screen reader labels, respects “reduced motion”.
 - **Themeable.** Light, dark or automatic theme, your own colours, English and German texts.
+- **Optional e-mail notification.** A small self-hosted [PHP add-on](#optional-e-mail-notification-php-add-on)
+  sends you each message by e-mail, so no request gets lost.
 
 > **Status:** v2 is in development. The API may still change. See the
 > [examples](https://whatsapp-widget.doebeling.dev/examples/01-minimal.html).
@@ -39,6 +41,7 @@ For the strictest privacy setup, [host the file yourself](#privacy-and-gdpr).
 | [1 · Minimal](https://whatsapp-widget.doebeling.dev/examples/01-minimal.html) ([source](examples/01-minimal.html)) | One script tag with a floating button |
 | [2 · Own buttons](https://whatsapp-widget.doebeling.dev/examples/02-external-button.html) ([source](examples/02-external-button.html)) | No floating button, opened from links and buttons with prefilled messages |
 | [3 · JavaScript API](https://whatsapp-widget.doebeling.dev/examples/03-javascript-api.html) ([source](examples/03-javascript-api.html)) | Configuration in JavaScript, German texts, 3 welcome messages, auto-open, events |
+| [4 · PHP add-on](https://whatsapp-widget.doebeling.dev/examples/04-php-addon.html) ([source](examples/04-php-addon.html)) | Optional e-mail notification with the visitor's phone number |
 
 ## Configuration
 
@@ -64,6 +67,8 @@ Use `data-*` attributes on the script tag, or pass the same options (in camelCas
 | `data-color` | `color` | WhatsApp green | Colour of header, button and send button, e.g. `#8a4b20`. |
 | `data-privacy-url` | `privacyUrl` | – | Link to your privacy policy, shown in the privacy notice. |
 | `data-privacy-notice` | `privacyNotice` | localised | Your own privacy notice. An empty value hides it. |
+| `data-notify-url` | `notifyUrl` | – | URL of your [PHP add-on](#optional-e-mail-notification-php-add-on). “Send” posts the message there first. |
+| `data-ask-phone` | `askPhone` | `false` | `optional` or `required`: asks for the visitor's phone number. Needs `notify-url`. |
 
 Example with JavaScript:
 
@@ -114,7 +119,54 @@ analytics, listen to these events on `document`:
 | --- | --- | --- |
 | `whatsapp-widget:open` | `{ auto }` | `auto` is `true` if the chat opened by itself. |
 | `whatsapp-widget:close` | `{}` | |
-| `whatsapp-widget:send` | `{ message, url }` | Call `event.preventDefault()` to stop WhatsApp from opening. |
+| `whatsapp-widget:send` | `{ message, url, phone }` | Call `event.preventDefault()` to stop WhatsApp from opening. |
+| `whatsapp-widget:notify` | `{ ok, status }` | Only with `notifyUrl`: result of the request to your server. |
+
+## Optional: e-mail notification (PHP add-on)
+
+Some visitors write a message but never press “Send” in WhatsApp, for example because WhatsApp Web
+is not set up on their computer. If you don't want to lose these requests, use the add-on
+[`addons/php/whatsapp-notify.php`](addons/php/whatsapp-notify.php). It runs on your own web server,
+not on GitHub Pages.
+
+1. Download the file, set your e-mail address at the top and upload it to your web server (PHP 8.1+).
+2. Point the widget to it and, if you like, ask for the visitor's phone number:
+
+   ```html
+   <script src="/js/whatsapp-widget.js"
+           data-phone="+49 911 1234567"
+           data-notify-url="/whatsapp-notify.php"
+           data-ask-phone="optional"
+           data-privacy-url="/privacy"
+           defer></script>
+   ```
+
+3. Update your privacy policy: with the add-on, the message (and phone number) goes to your server
+   and mailbox before WhatsApp opens.
+
+When the visitor presses “Send”, the widget posts the message to the add-on and opens WhatsApp at the
+same time. You get an e-mail like this:
+
+```text
+New message via the WhatsApp widget
+
+Hello, we need a new logo for our bakery.
+
+---
+Phone: 0176 123 456 78
+Reply on WhatsApp: https://wa.me/4917612345678
+Page: https://www.example.com/services
+Time: 2026-09-25 17:52:20 CEST
+```
+
+What the add-on does for security and privacy:
+
+- Accepts only `POST` requests from your own website (checks the `Origin` header).
+- Puts visitor input only into the mail body, never into mail headers.
+- Limits the message length and the number of mails per hour.
+- Stores nothing and writes no logs. Does not send or read cookies.
+
+The privacy notice in the chat changes automatically when `notifyUrl` is set.
 
 ## Styling
 
@@ -142,6 +194,8 @@ The widget is built for data minimisation:
    uses no local storage. Icons are inline SVG, fonts are system fonts.
 2. **After “Send”:** The browser opens `wa.me`, WhatsApp Web or the WhatsApp app. From this moment on,
    WhatsApp (Meta) processes the data under its own privacy policy. The widget shows a notice about this.
+3. **Only with the PHP add-on:** “Send” also transmits the message (and phone number, if asked) to your
+   own server, which e-mails it to you. The notice in the chat says so.
 
 **Host the file yourself.** If you load `whatsapp-widget.js` from `whatsapp-widget.doebeling.dev`, the
 visitor's browser connects to GitHub Pages and transmits the IP address, like with any externally

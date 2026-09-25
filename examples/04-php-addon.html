@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Example 4: E-mail notification with the PHP add-on – WhatsApp Widget</title>
+  <link rel="stylesheet" href="assets/examples.css">
+  <!-- Demo helper, not needed on your site -->
+  <script src="assets/demo.js"></script>
+</head>
+<body>
+
+<nav class="demo-nav" aria-label="Examples">
+  <strong>WhatsApp Widget examples</strong>
+  <a href="01-minimal.html">1 · Minimal</a>
+  <a href="02-external-button.html">2 · Own buttons</a>
+  <a href="03-javascript-api.html">3 · JavaScript API (DE)</a>
+  <a href="04-php-addon.html" aria-current="page">4 · PHP add-on</a>
+  <a href="../">Documentation</a>
+</nav>
+
+<main class="page">
+  <header class="hero">
+    <h1>Studio Example</h1>
+    <p>A fictional design studio. The chat asks for the visitor's phone number and sends the request to the
+      studio by e-mail before WhatsApp opens. So no request gets lost, even if the visitor does not send the
+      message in WhatsApp.</p>
+  </header>
+
+  <section>
+    <h2>Example 4: Optional e-mail notification</h2>
+    <p>The widget itself needs no server. If you want an e-mail for every message, upload the add-on
+      <a href="https://github.com/DOEBELING/WhatsApp-Widget/blob/main/addons/php/whatsapp-notify.php"><code>whatsapp-notify.php</code></a>
+      to your own web server (PHP 8.1+) and point the widget to it:</p>
+    <pre><code>&lt;script src="/js/whatsapp-widget.js"
+        data-phone="+49 000 0000000"
+        data-name="Studio Example"
+        data-welcome="Hello! Tell us about your project.|We usually reply within a day."
+        data-notify-url="/whatsapp-notify.php"
+        data-ask-phone="optional"
+        data-privacy-url="/privacy"
+        defer&gt;&lt;/script&gt;</code></pre>
+    <ul>
+      <li><code>data-notify-url</code>: “Send” posts the message to this URL and then opens WhatsApp.</li>
+      <li><code>data-ask-phone</code>: <code>optional</code> or <code>required</code> shows a field for the visitor's number.
+        The e-mail contains a link to reply on WhatsApp.</li>
+      <li>The privacy notice in the chat changes automatically: it says that the message is transmitted to you.
+        Link your privacy policy with <code>data-privacy-url</code>.</li>
+    </ul>
+    <p class="note">GitHub Pages cannot run PHP. On this page, the small log in the bottom left corner shows the request
+      instead of sending it.</p>
+  </section>
+
+  <section>
+    <h2>The e-mail you receive</h2>
+    <pre><code>Subject: New message via the WhatsApp widget
+
+New message via the WhatsApp widget
+
+Hello, we need a new logo for our bakery.
+
+---
+Phone: 0176 123 456 78
+Reply on WhatsApp: https://wa.me/4917612345678
+Page: https://www.example.com/services
+Time: 2026-09-25 17:52:20 CEST</code></pre>
+  </section>
+
+  <section id="privacy">
+    <h2>Privacy</h2>
+    <p>With the add-on, the message leaves the browser before WhatsApp opens: it goes to <em>your</em> server and to
+      your mailbox. The add-on stores nothing and writes no logs, but your web server may log the request (without the
+      message, because it is sent as POST). Mention this in your privacy policy.</p>
+  </section>
+</main>
+
+<script src="../whatsapp-widget.js"
+        data-phone="+49 000 0000000"
+        data-name="Studio Example"
+        data-welcome="Hello! Tell us about your project.|We usually reply within a day."
+        data-notify-url="/whatsapp-notify.php"
+        data-ask-phone="optional"
+        data-privacy-url="#privacy"
+        defer></script>
+</body>
+</html>

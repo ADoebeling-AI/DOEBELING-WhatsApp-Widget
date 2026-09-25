@@ -5,6 +5,7 @@
  *
  * Looks like a live chat, but only opens WhatsApp (app or web) with a
  * prefilled message. No backend, no cookies, no tracking, no external requests.
+ * Optional: notify your own server (see addons/php/) before WhatsApp opens.
  *
  * WhatsApp icon: Font Awesome Free 6 by @fontawesome - https://fontawesome.com
  * License: CC BY 4.0 - https://fontawesome.com/license/free
@@ -35,6 +36,8 @@
     privacyNotice: null,  // null = localised default, '' = hide
     privacyUrl: '',       // link to your privacy policy
     typing: true,         // "typing…" animation before welcome messages
+    notifyUrl: '',        // optional self-hosted endpoint that receives the message (see addons/php/)
+    askPhone: false,      // false | 'optional' | 'required' - asks for the visitor's number (needs notifyUrl)
   };
 
   const I18N = {
@@ -50,6 +53,9 @@
       opened: 'WhatsApp has been opened in a new tab. Please send your message there.',
       reopen: 'Open WhatsApp again',
       unread: (n) => `${n} unread message${n === 1 ? '' : 's'}`,
+      privacyNotify: (withPhone) => `“Send” transmits your message${withPhone ? ' and phone number' : ''} to us and opens WhatsApp, where the privacy policy of WhatsApp (Meta) applies.`,
+      phoneLabel: 'Your phone number, so we can reply',
+      phoneOptional: 'Your phone number (optional), so we can reply',
     },
     de: {
       open: 'WhatsApp-Chat öffnen',
@@ -63,6 +69,9 @@
       opened: 'WhatsApp wurde in einem neuen Tab geöffnet. Bitte sende deine Nachricht dort ab.',
       reopen: 'WhatsApp erneut öffnen',
       unread: (n) => `${n} ungelesene Nachricht${n === 1 ? '' : 'en'}`,
+      privacyNotify: (withPhone) => `„Senden“ übermittelt deine Nachricht${withPhone ? ' und Telefonnummer' : ''} an uns und öffnet WhatsApp – dort gilt die Datenschutzerklärung von WhatsApp (Meta).`,
+      phoneLabel: 'Deine Telefonnummer, damit wir antworten können',
+      phoneOptional: 'Deine Telefonnummer (optional), damit wir antworten können',
     },
   };
 
@@ -264,11 +273,26 @@
     /* Composer */
     .waw-composer {
       display: flex;
+      flex-wrap: wrap;
       align-items: flex-end;
       gap: 8px;
       padding: 8px 10px 10px;
       background: var(--_panel-bg);
     }
+    .waw-phone {
+      flex: 1 0 100%;
+      height: 38px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 19px;
+      background: var(--_input-bg);
+      color: var(--_text);
+      font: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+    .waw-phone::placeholder { color: var(--_muted); }
+    .waw-phone[aria-invalid="true"] { box-shadow: inset 0 0 0 2px #e53935; }
     .waw-input {
       flex: 1;
       min-height: 42px;
@@ -395,6 +419,12 @@
     return phone;
   }
 
+  /** Lenient check for the visitor's own number (national or international format). */
+  function isPlausiblePhone(value) {
+    const digits = value.replace(/\D/g, '');
+    return /^\+?[\d\s()./-]+$/.test(value) && digits.length >= 6 && digits.length <= 15;
+  }
+
   function buildUrl(phone, text, target) {
     const message = encodeURIComponent(text || '');
     switch (target) {
@@ -447,6 +477,8 @@
       privacyNotice: data.privacyNotice,
       privacyUrl: data.privacyUrl,
       typing: data.typing,
+      notifyUrl: data.notifyUrl,
+      askPhone: data.askPhone,
     };
   }
 
@@ -473,6 +505,14 @@
     config.autoOpen = toSeconds(config.autoOpen);
     config.target = ['web', 'app'].includes(config.target) ? config.target : 'auto';
     config.theme = ['dark', 'auto'].includes(config.theme) ? config.theme : 'light';
+    config.askPhone = ['optional', 'required'].includes(config.askPhone) ? config.askPhone : false;
+    if (config.askPhone && !config.notifyUrl) {
+      console.warn(`${LOG_PREFIX} "askPhone" needs "notifyUrl", otherwise nobody receives the number. Ignored.`);
+      config.askPhone = false;
+    }
+    if (config.notifyUrl && !config.privacyUrl) {
+      console.warn(`${LOG_PREFIX} With "notifyUrl" the message is sent to your server. Please set "privacyUrl".`);
+    }
     return config;
   }
 
@@ -513,7 +553,8 @@
       });
 
       this.messagesEl = el('div', { className: 'waw-messages', role: 'log', 'aria-live': 'polite' });
-      const notice = config.privacyNotice === null ? t.privacy : String(config.privacyNotice);
+      const defaultNotice = config.notifyUrl ? t.privacyNotify(Boolean(config.askPhone)) : t.privacy;
+      const notice = config.privacyNotice === null ? defaultNotice : String(config.privacyNotice);
       if (notice) {
         const noticeEl = el('p', { className: 'waw-notice', text: `${notice} ` });
         if (config.privacyUrl) {
@@ -539,6 +580,20 @@
         this.input,
         this.sendButton,
       ]);
+      if (config.askPhone) {
+        const phoneLabel = config.askPhone === 'required' ? t.phoneLabel : t.phoneOptional;
+        this.phoneInput = el('input', {
+          id: 'waw-phone',
+          className: 'waw-phone',
+          type: 'tel',
+          autocomplete: 'tel',
+          inputmode: 'tel',
+          placeholder: phoneLabel,
+          required: config.askPhone === 'required',
+        });
+        this.phoneInput.addEventListener('input', () => this.updateComposer());
+        this.form.prepend(el('label', { className: 'waw-sr', for: 'waw-phone', text: phoneLabel }), this.phoneInput);
+      }
 
       this.window = el('section', {
         className: 'waw-window',
@@ -665,9 +720,14 @@
       const message = this.input.value.trim();
       if (!message) return;
 
+      if (!this.isComposerValid()) return;
+
       const url = buildUrl(this.config.phone, message, this.config.target);
-      const proceed = this.emit('send', { message, url }, true);
+      const phone = this.phoneInput ? this.phoneInput.value.trim() : '';
+      const proceed = this.emit('send', { message, url, phone }, true);
       if (!proceed) return;
+
+      if (this.config.notifyUrl) this.notify({ message, phone });
 
       // Open WhatsApp synchronously inside the click/keypress handler,
       // otherwise browsers treat it as an unwanted popup.
@@ -682,6 +742,27 @@
       info.append(el('a', { href: url, target: '_blank', rel: 'noopener', text: this.t.reopen }));
       this.messagesEl.append(info);
       this.scrollToBottom();
+    }
+
+    /**
+     * Sends the message to the optional self-hosted endpoint (see addons/php/).
+     * Uses a "simple" form POST (no CORS preflight) with keepalive, so the request
+     * finishes even if the page navigates to the WhatsApp app. Sends no cookies.
+     */
+    notify({ message, phone }) {
+      const body = new URLSearchParams({ message, page: window.location.origin + window.location.pathname });
+      if (phone) body.append('phone', phone);
+      fetch(this.config.notifyUrl, { method: 'POST', body, keepalive: true, credentials: 'omit' })
+        .then((response) => this.emit('notify', { ok: response.ok, status: response.status }))
+        .catch(() => this.emit('notify', { ok: false, status: 0 }));
+    }
+
+    isComposerValid() {
+      if (this.input.value.trim().length === 0) return false;
+      if (!this.phoneInput) return true;
+      const phone = this.phoneInput.value.trim();
+      if (!phone) return this.config.askPhone !== 'required';
+      return isPlausiblePhone(phone);
     }
 
     async playWelcome() {
@@ -716,7 +797,11 @@
     }
 
     updateComposer() {
-      this.sendButton.disabled = this.input.value.trim().length === 0;
+      this.sendButton.disabled = !this.isComposerValid();
+      if (this.phoneInput) {
+        const phone = this.phoneInput.value.trim();
+        this.phoneInput.setAttribute('aria-invalid', String(Boolean(phone) && !isPlausiblePhone(phone)));
+      }
       this.input.style.height = 'auto';
       this.input.style.height = `${Math.min(this.input.scrollHeight, 120)}px`;
     }
