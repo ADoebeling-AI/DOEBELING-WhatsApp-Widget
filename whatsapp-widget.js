@@ -1,5 +1,5 @@
 /*!
- * WhatsApp Widget v0.2.0-draft
+ * WhatsApp Widget v2.0.0
  * https://github.com/DOEBELING/WhatsApp-Widget
  * License: GPL-3.0-or-later
  *
@@ -14,7 +14,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.2.0-draft';
+  const VERSION = '2.0.0';
   const LOG_PREFIX = '[WhatsAppWidget]';
   const EVENT_PREFIX = 'whatsapp-widget:';
   const MAX_WELCOME_MESSAGES = 3;

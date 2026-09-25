@@ -22,7 +22,7 @@ but it only opens WhatsApp (app or WhatsApp Web) with the visitor's message alre
 Add this before `</body>` and replace the phone number with yours:
 
 ```html
-<script src="https://wa-widget.doebeling.de/whatsapp-widget.js"
+<script src="https://wa-widget.doebeling.de/v2/whatsapp-widget.js"
         data-phone="+49 911 1234567"
         data-name="Your Company"
         data-welcome="Hi there! 👋 How can we help you?"
@@ -44,6 +44,30 @@ For the strictest privacy setup, [host the file yourself](#privacy-and-gdpr).
 2. When the chat opens, the next welcome messages are typed one after the other.
 3. After “Send”, WhatsApp opens with the message. The input field is locked and the send button
    becomes “Open WhatsApp”: the conversation continues in WhatsApp.
+
+## Versions
+
+| URL | Gets | Use it when |
+| --- | --- | --- |
+| `https://wa-widget.doebeling.de/v2/whatsapp-widget.js` | the newest `2.x.y`: fixes and new options, never breaking changes | you want updates without work (recommended) |
+| `https://wa-widget.doebeling.de/v2.0.0/whatsapp-widget.js` | exactly this version, never changes | you want to check every update yourself; add the integrity hash |
+
+With an exact version, let the browser check that the file was not changed
+([Subresource Integrity](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity)).
+The [configurator](https://wa-widget.doebeling.de) creates the code for you (“Pin the exact version”);
+all hashes are in [`versions.json`](https://wa-widget.doebeling.de/versions.json):
+
+```html
+<script src="https://wa-widget.doebeling.de/v2.0.0/whatsapp-widget.js"
+        integrity="sha384-…"
+        crossorigin="anonymous"
+        data-phone="+49 911 1234567"
+        defer></script>
+```
+
+A new major version (`v3`) may change options or behaviour; it gets its own URL, so `v2` keeps working.
+Changes are listed in the [changelog](CHANGELOG.md). Don't embed `/whatsapp-widget.js` without version:
+it is the development version from `main`.
 
 ## Examples
 
@@ -87,7 +111,7 @@ Use `data-*` attributes on the script tag, or pass the same options (in camelCas
 Example with JavaScript:
 
 ```html
-<script src="https://wa-widget.doebeling.de/whatsapp-widget.js"></script>
+<script src="https://wa-widget.doebeling.de/v2/whatsapp-widget.js"></script>
 <script>
   WhatsAppWidget.init({
     phone: '+49 911 1234567',
@@ -171,7 +195,7 @@ agreement. You get a confirmation link by e-mail. After the confirmation, the co
 code with a `data-site-key`, and you get the code by e-mail, too:
 
 ```html
-<script src="https://wa-widget.doebeling.de/whatsapp-widget.js"
+<script src="https://wa-widget.doebeling.de/v2/whatsapp-widget.js"
         data-phone="+49 911 1234567"
         data-privacy-url="/privacy"
         data-site-key="wwk1_…"
@@ -290,10 +314,11 @@ Recommended layout (the web root of the subdomain is `htdocs`):
 
 ### Deployment
 
-Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml): it runs the
-tests and copies `htdocs` to the server with rsync over SSH. You can also start it by hand under
-*Actions → Deploy → Run workflow*. Until the secrets are set, the workflow deploys nothing and only
-shows a notice.
+Every push to `main` and every release tag runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
+it runs the tests, builds the site with [`tools/build-site.sh`](tools/build-site.sh) and copies it to
+`htdocs` with rsync over SSH. You can also start it by hand under *Actions → Deploy → Run workflow*.
+Until the secrets are set, the workflow deploys nothing and only shows a notice. GitHub Actions must be
+enabled for the repository.
 
 1. Check that SSH works for your account and that the server has rsync. On Hetzner Webhosting, SSH
    uses port 222 and your account name as user:
@@ -317,10 +342,34 @@ shows a notice.
 
 6. Delete `deploy_key` from your computer after you have stored it as a secret.
 
-What the workflow copies: everything except `.git/`, `.github/`, `tests/`, `README.md`, `addons/` and
-`api/config.sample.php`. It deletes files in `htdocs` that are no longer in the repository, but never
-`.htaccess`, `.user.ini`, `.well-known/`, `dpa.html` and `api/config.php`. The configuration and the
-storage directory lie outside `htdocs`, so rsync never touches them.
+What the build contains: the files from `main` except `.github/`, `tests/`, `tools/`, `README.md`,
+`addons/` and `api/config.sample.php`, plus `/vX.Y.Z/` for every release tag, `/vX/` with the newest
+release of each major version and `versions.json`. The version folders get a `.htaccess` for caching and
+CORS (needed for integrity checks). rsync deletes files in `htdocs` that are no longer in the build, but
+never `.htaccess`, `.user.ini`, `.well-known/`, `dpa.html` and `api/config.php`. The configuration and
+the storage directory lie outside `htdocs`, so rsync never touches them.
+
+Without GitHub Actions, deploy by hand from a clone with all tags:
+
+```sh
+tools/build-site.sh /tmp/site
+rsync -rlc --delete --chmod=D755,F644 \
+  --filter='P /.htaccess' --filter='P /.user.ini' --filter='P /.well-known/' \
+  --filter='P /dpa.html' --filter='P /api/config.php' \
+  -e "ssh -p 222" /tmp/site/ <name>@www<NNN>.your-server.de:/usr/www/users/<name>/wa-widget.doebeling.de/htdocs/
+```
+
+### Releasing a new version
+
+1. On a branch: set `VERSION` (and the version in the header comment) in `whatsapp-widget.js`, add the
+   changes to [`CHANGELOG.md`](CHANGELOG.md) with the date, open a pull request and merge it.
+2. Create the release on GitHub: tag `vX.Y.Z` on `main`, title `vX.Y.Z`, text from the changelog.
+3. The deploy workflow publishes `/vX.Y.Z/` and moves `/vX/` to the new version. It fails if the tag
+   and `VERSION` don't match.
+
+Use a new major version for changes that can break existing websites (removed or renamed options,
+different default behaviour). The notification service in `api/` must stay compatible with all released
+widgets of the current major version.
 
 ## Contributing
 
