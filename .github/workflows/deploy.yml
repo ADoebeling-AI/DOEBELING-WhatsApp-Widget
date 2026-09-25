@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: https://whatsapp-widget.doebeling.dev
+      url: https://wa-widget.doebeling.de
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}

@@ -13,10 +13,10 @@ return [
     'secret' => '',
 
     // Public address of this site, without trailing slash.
-    'base_url' => 'https://whatsapp-widget.doebeling.dev',
+    'base_url' => 'https://wa-widget.doebeling.de',
 
     // Sender of all mails. Use an address of this domain with SPF, DKIM and DMARC.
-    'sender' => 'notify@whatsapp-widget.doebeling.dev',
+    'sender' => 'notify@wa-widget.doebeling.de',
     'sender_name' => 'WhatsApp Widget',
 
     // Writable directory OUTSIDE the web root for rate limits and revoked keys.
@@ -25,7 +25,7 @@ return [
     'storage_dir' => __DIR__ . '/whatsapp-widget-storage',
 
     // Data processing agreement (Art. 28 GDPR) that site owners accept when they confirm.
-    'dpa_url' => 'https://whatsapp-widget.doebeling.dev/dpa.html',
+    'dpa_url' => 'https://wa-widget.doebeling.de/dpa.html',
     'dpa_version' => '2026-09',
 
     // Proof of work the widget has to deliver (leading zero bits of a SHA-256 hash).

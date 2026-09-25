@@ -18,7 +18,7 @@
   const LOG_PREFIX = '[WhatsAppWidget]';
   const EVENT_PREFIX = 'whatsapp-widget:';
   const MAX_WELCOME_MESSAGES = 3;
-  const HOSTED_NOTIFY_URL = 'https://whatsapp-widget.doebeling.dev/api/notify.php';
+  const HOSTED_NOTIFY_URL = 'https://wa-widget.doebeling.de/api/notify.php';
   const POW_BITS = 18;          // proof of work for notifications, see proofOfWork()
   const POW_MAX_AGE = 600;      // seconds; the server accepts proofs up to 15 minutes old
 
