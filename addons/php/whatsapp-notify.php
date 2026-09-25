@@ -20,7 +20,7 @@
  * personal data.
  *
  * Don't want to run PHP? Use the hosted service instead: get a site key in the
- * configurator on https://whatsapp-widget.doebeling.dev.
+ * configurator on https://wa-widget.doebeling.de.
  */
 
 declare(strict_types=1);
