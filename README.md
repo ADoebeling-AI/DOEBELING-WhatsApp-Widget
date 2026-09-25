@@ -77,7 +77,7 @@ Use `data-*` attributes on the script tag, or pass the same options (in camelCas
 | `data-privacy-url` | `privacyUrl` | – | Link to your privacy policy, shown in the privacy notice. |
 | `data-privacy-notice` | `privacyNotice` | localised | Your own privacy notice. An empty value hides it. |
 | `data-notify-url` | `notifyUrl` | – | URL of your [PHP add-on](#optional-e-mail-notification-php-add-on). “Send” posts the message there first. |
-| `data-ask-phone` | `askPhone` | `false` | `optional` or `required`: asks for the visitor's phone number. Needs `notify-url`. |
+| `data-ask-phone` | `askPhone` | `required` with `notify-url` | Asks for the visitor's phone number: `required`, `optional` or `false`. Only works with `notify-url`. |
 
 Example with JavaScript:
 
@@ -139,22 +139,25 @@ is not set up on their computer. If you don't want to lose these requests, use t
 not on GitHub Pages.
 
 1. Download the file, set your e-mail address at the top and upload it to your web server (PHP 8.1+).
-2. Point the widget to it and, if you like, ask for the visitor's phone number:
+2. Point the widget to it:
 
    ```html
    <script src="/js/whatsapp-widget.js"
            data-phone="+49 911 1234567"
            data-notify-url="/whatsapp-notify.php"
-           data-ask-phone="optional"
            data-privacy-url="/privacy"
            defer></script>
    ```
+
+   The chat now asks for the visitor's phone number (required). So you can call back even if the
+   visitor never sends the message in WhatsApp. Use `data-ask-phone="optional"` or `"false"` to change
+   this, and set `phone_required` in the PHP file to match.
 
 3. Update your privacy policy: with the add-on, the message (and phone number) goes to your server
    and mailbox before WhatsApp opens.
 
 When the visitor presses “Send”, the widget posts the message to the add-on and opens WhatsApp at the
-same time. You get an e-mail like this:
+same time. The chat confirms that the message has reached you. You get an e-mail like this:
 
 ```text
 New message via the WhatsApp widget
@@ -175,7 +178,7 @@ What the add-on does for security and privacy:
 - Limits the message length and the number of mails per hour.
 - Stores nothing and writes no logs. Does not send or read cookies.
 
-The privacy notice in the chat changes automatically when `notifyUrl` is set.
+The privacy notice in the chat changes automatically when `notifyUrl` is set (see below).
 
 ## Styling
 
@@ -197,7 +200,16 @@ More properties: `--waw-header-text`, `--waw-chat-bg`, `--waw-panel-bg`, `--waw-
 
 ## Privacy and GDPR
 
-The widget is built for data minimisation:
+The widget is built for data minimisation. The notice at the top of the chat says what happens:
+
+| Setup | Notice (English / German) |
+| --- | --- |
+| Widget only | Nothing is transmitted before you click “Send”. After that, your message and contact details go to WhatsApp (Meta). <br> *Vor dem Klick auf „Senden“ wird nichts übertragen. Danach gehen Nachricht und Kontaktdaten an WhatsApp (Meta).* |
+| With PHP add-on | Nothing is transmitted before you click “Send”. After that, your message and phone number go to us by e-mail, and your message and contact details go to WhatsApp (Meta). <br> *Vor dem Klick auf „Senden“ wird nichts übertragen. Danach gehen Nachricht und Telefonnummer per E-Mail an uns sowie Nachricht und Kontaktdaten an WhatsApp (Meta).* |
+
+The German texts avoid “du” and “Sie”, so they fit any website. Use `privacyNotice` for your own text.
+
+In detail:
 
 1. **Before “Send”:** The widget runs only in the browser. It sends no requests, sets no cookies and
    uses no local storage. Icons are inline SVG, fonts are system fonts.
@@ -206,11 +218,11 @@ The widget is built for data minimisation:
 3. **Only with the PHP add-on:** “Send” also transmits the message (and phone number, if asked) to your
    own server, which e-mails it to you. The notice in the chat says so.
 
-**Host the file yourself.** If you load `whatsapp-widget.js` from `whatsapp-widget.doebeling.dev`, the
-visitor's browser connects to GitHub Pages and transmits the IP address, like with any externally
-hosted script or font. For the strictest setup, download
-[`whatsapp-widget.js`](whatsapp-widget.js), upload it to your own server and change the `src`.
-Host the avatar image yourself, too.
+**Hosting.** `whatsapp-widget.doebeling.dev` runs on a server in Germany. GitHub Pages is only a
+mirror. If you load `whatsapp-widget.js` from one of them, the visitor's browser connects to a
+third-party server and transmits the IP address, like with any externally hosted script or font. For the strictest
+setup, download [`whatsapp-widget.js`](whatsapp-widget.js), upload it to your own server and change
+the `src`. Host the avatar image yourself, too.
 
 Mention WhatsApp as a contact channel in your privacy policy. This is not legal advice.
 
