@@ -13,7 +13,7 @@ but it only opens WhatsApp (app or WhatsApp Web) with the visitor's message alre
   [hosted service](#hosted-service) (nothing to install) or a [PHP script on your own server](#own-php-script).
 
 > **Status:** v2 is in development. The API may still change. See the
-> [examples](https://whatsapp-widget.doebeling.dev/examples/01-minimal.html).
+> [examples](https://wa-widget.doebeling.de/examples/01-minimal.html).
 
 ![WhatsApp Widget with welcome message and sent message](examples/assets/preview.png)
 
@@ -22,7 +22,7 @@ but it only opens WhatsApp (app or WhatsApp Web) with the visitor's message alre
 Add this before `</body>` and replace the phone number with yours:
 
 ```html
-<script src="https://whatsapp-widget.doebeling.dev/whatsapp-widget.js"
+<script src="https://wa-widget.doebeling.de/whatsapp-widget.js"
         data-phone="+49 911 1234567"
         data-name="Your Company"
         data-welcome="Hi there! 👋 How can we help you?"
@@ -32,7 +32,7 @@ Add this before `</body>` and replace the phone number with yours:
 That's it. Only `data-phone` is required. Use the international format with country code
 (`+49 911 1234567`, not `0911 1234567`).
 
-Even easier: the **[configurator](https://whatsapp-widget.doebeling.dev)** lets you fill in a form,
+Even easier: the **[configurator](https://wa-widget.doebeling.de)** lets you fill in a form,
 shows a live preview and gives you the code to copy.
 
 For the strictest privacy setup, [host the file yourself](#privacy-and-gdpr).
@@ -41,10 +41,10 @@ For the strictest privacy setup, [host the file yourself](#privacy-and-gdpr).
 
 | Example | Shows |
 | --- | --- |
-| [1 · Minimal](https://whatsapp-widget.doebeling.dev/examples/01-minimal.html) ([source](examples/01-minimal.html)) | One script tag with a floating button |
-| [2 · Own buttons](https://whatsapp-widget.doebeling.dev/examples/02-external-button.html) ([source](examples/02-external-button.html)) | No floating button, opened from links and buttons with prefilled messages |
-| [3 · JavaScript API](https://whatsapp-widget.doebeling.dev/examples/03-javascript-api.html) ([source](examples/03-javascript-api.html)) | Configuration in JavaScript, German texts, 3 welcome messages, auto-open, events |
-| [4 · PHP add-on](https://whatsapp-widget.doebeling.dev/examples/04-php-addon.html) ([source](examples/04-php-addon.html)) | Optional e-mail notification with the visitor's phone number |
+| [1 · Minimal](https://wa-widget.doebeling.de/examples/01-minimal.html) ([source](examples/01-minimal.html)) | One script tag with a floating button |
+| [2 · Own buttons](https://wa-widget.doebeling.de/examples/02-external-button.html) ([source](examples/02-external-button.html)) | No floating button, opened from links and buttons with prefilled messages |
+| [3 · JavaScript API](https://wa-widget.doebeling.de/examples/03-javascript-api.html) ([source](examples/03-javascript-api.html)) | Configuration in JavaScript, German texts, 3 welcome messages, auto-open, events |
+| [4 · PHP add-on](https://wa-widget.doebeling.de/examples/04-php-addon.html) ([source](examples/04-php-addon.html)) | Optional e-mail notification with the visitor's phone number |
 
 ## Configuration
 
@@ -77,7 +77,7 @@ Use `data-*` attributes on the script tag, or pass the same options (in camelCas
 Example with JavaScript:
 
 ```html
-<script src="https://whatsapp-widget.doebeling.dev/whatsapp-widget.js"></script>
+<script src="https://wa-widget.doebeling.de/whatsapp-widget.js"></script>
 <script>
   WhatsAppWidget.init({
     phone: '+49 911 1234567',
@@ -154,13 +154,13 @@ Time: 2026-09-25 17:52:20 CEST
 
 ### Hosted service
 
-Nothing to install. In the [configurator](https://whatsapp-widget.doebeling.dev), choose
+Nothing to install. In the [configurator](https://wa-widget.doebeling.de), choose
 “E-mail via this service”, enter your e-mail address and your website, and accept the data processing
 agreement. You get a confirmation link by e-mail. After the confirmation, the configurator shows your
 code with a `data-site-key`, and you get the code by e-mail, too:
 
 ```html
-<script src="https://whatsapp-widget.doebeling.dev/whatsapp-widget.js"
+<script src="https://wa-widget.doebeling.de/whatsapp-widget.js"
         data-phone="+49 911 1234567"
         data-privacy-url="/privacy"
         data-site-key="wwk1_…"
@@ -235,7 +235,7 @@ In detail:
 3. **Only with e-mail notification:** “Send” also transmits message, phone number and page address to
    your own server or to the hosted service, which e-mails them to you. The notice in the chat says so.
 
-**Hosting.** `whatsapp-widget.doebeling.dev` runs on a server in Germany. If you load
+**Hosting.** `wa-widget.doebeling.de` runs on a server in Germany. If you load
 `whatsapp-widget.js` from there, the visitor's browser connects to that server and transmits the IP
 address, like with any externally hosted script or font. For the strictest setup, download
 [`whatsapp-widget.js`](whatsapp-widget.js), upload it to your own server and change the `src`.
@@ -250,20 +250,20 @@ The widget uses modern JavaScript (ES2018) and does not support Internet Explore
 
 ## Running the site and the notification service
 
-The repository is the complete website of `whatsapp-widget.doebeling.dev`: configurator (`index.html`),
+The repository is the complete website of `wa-widget.doebeling.de`: configurator (`index.html`),
 examples, widget and the notification service in [`api/`](api). It runs on Hetzner Webhosting; the
 examples below use its paths. Any web server with PHP works the same way.
 
 Recommended layout (the web root of the subdomain is `htdocs`):
 
 ```text
-/usr/www/users/<name>/whatsapp-widget.doebeling.dev/
+/usr/www/users/<name>/wa-widget.doebeling.de/
 ├── htdocs/                        ← web root, filled by the deploy workflow
 ├── whatsapp-widget-config.php     ← configuration with the secret, not reachable from the web
 └── whatsapp-widget-storage/       ← rate limits and revoked keys, writable for PHP
 ```
 
-1. In konsoleH, point the subdomain to `…/whatsapp-widget.doebeling.dev/htdocs`, select PHP 8.1 or newer
+1. In konsoleH, point the subdomain to `…/wa-widget.doebeling.de/htdocs`, select PHP 8.1 or newer
    and switch on HTTPS. PHP needs the `sodium` extension (included in PHP 8) and a working `mail()`.
 2. Copy [`api/config.sample.php`](api/config.sample.php) to `whatsapp-widget-config.php` **next to**
    `htdocs` and fill it in. The widget finds it there automatically. Create the secret with
@@ -300,7 +300,7 @@ shows a notice.
    | `DEPLOY_HOST` | `www123.your-server.de` | Server name from konsoleH |
    | `DEPLOY_PORT` | `222` | Hetzner Webhosting; default is `22` |
    | `DEPLOY_USER` | `name` | Account name |
-   | `DEPLOY_PATH` | `/usr/www/users/name/whatsapp-widget.doebeling.dev/htdocs` | Web root of the site, absolute, at least three levels deep |
+   | `DEPLOY_PATH` | `/usr/www/users/name/wa-widget.doebeling.de/htdocs` | Web root of the site, absolute, at least three levels deep |
    | `DEPLOY_SSH_KEY` | content of `deploy_key` | Private key from step 2 |
    | `DEPLOY_KNOWN_HOSTS` | output of step 4 | The workflow refuses unknown host keys |
 
