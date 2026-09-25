@@ -37,7 +37,7 @@
     privacyUrl: '',       // link to your privacy policy
     typing: true,         // "typing…" animation before welcome messages
     notifyUrl: '',        // optional self-hosted endpoint that receives the message (see addons/php/)
-    askPhone: false,      // false | 'optional' | 'required' - asks for the visitor's number (needs notifyUrl)
+    askPhone: null,       // 'required' | 'optional' | false - visitor's number; default 'required' with notifyUrl
   };
 
   const I18N = {
@@ -45,33 +45,37 @@
       open: 'Open WhatsApp chat',
       close: 'Close chat',
       placeholder: 'Type a message',
-      inputLabel: 'Your message',
+      inputLabel: 'Message',
       send: 'Send',
       typing: 'typing…',
-      privacy: 'Nothing you type here is stored or transmitted. “Send” opens WhatsApp, where the privacy policy of WhatsApp (Meta) applies.',
+      privacy: 'Nothing is transmitted before you click “Send”. After that, your message and contact details go to WhatsApp (Meta).',
       privacyLink: 'Privacy policy',
       opened: 'WhatsApp has been opened in a new tab. Please send your message there.',
       reopen: 'Open WhatsApp again',
       unread: (n) => `${n} unread message${n === 1 ? '' : 's'}`,
-      privacyNotify: (withPhone) => `“Send” transmits your message${withPhone ? ' and phone number' : ''} to us and opens WhatsApp, where the privacy policy of WhatsApp (Meta) applies.`,
-      phoneLabel: 'Your phone number, so we can reply',
-      phoneOptional: 'Your phone number (optional), so we can reply',
+      privacyNotify: (askPhone) => `Nothing is transmitted before you click “Send”. After that, your message${{ required: ' and phone number', optional: ' and phone number (if given)' }[askPhone] || ''} go${askPhone ? '' : 'es'} to us by e-mail, and your message and contact details go to WhatsApp (Meta).`,
+      phoneLabel: 'Phone number, so we can reply',
+      phoneOptional: 'Phone number (optional), so we can reply',
+      notified: 'Your message has reached us. We will get back to you, even if WhatsApp does not work.',
+      notifyFailed: 'Your message could not be sent to us. Please send it in WhatsApp.',
     },
     de: {
       open: 'WhatsApp-Chat öffnen',
       close: 'Chat schließen',
       placeholder: 'Nachricht schreiben',
-      inputLabel: 'Deine Nachricht',
+      inputLabel: 'Nachricht',
       send: 'Senden',
       typing: 'schreibt …',
-      privacy: 'Hier wird nichts gespeichert oder übertragen. „Senden“ öffnet WhatsApp – dort gilt die Datenschutzerklärung von WhatsApp (Meta).',
+      privacy: 'Vor dem Klick auf „Senden“ wird nichts übertragen. Danach gehen Nachricht und Kontaktdaten an WhatsApp (Meta).',
       privacyLink: 'Datenschutzerklärung',
-      opened: 'WhatsApp wurde in einem neuen Tab geöffnet. Bitte sende deine Nachricht dort ab.',
+      opened: 'WhatsApp wurde in einem neuen Tab geöffnet. Bitte die Nachricht dort absenden.',
       reopen: 'WhatsApp erneut öffnen',
       unread: (n) => `${n} ungelesene Nachricht${n === 1 ? '' : 'en'}`,
-      privacyNotify: (withPhone) => `„Senden“ übermittelt deine Nachricht${withPhone ? ' und Telefonnummer' : ''} an uns und öffnet WhatsApp – dort gilt die Datenschutzerklärung von WhatsApp (Meta).`,
-      phoneLabel: 'Deine Telefonnummer, damit wir antworten können',
-      phoneOptional: 'Deine Telefonnummer (optional), damit wir antworten können',
+      privacyNotify: (askPhone) => `Vor dem Klick auf „Senden“ wird nichts übertragen. Danach gehen Nachricht${{ required: ' und Telefonnummer', optional: ' und ggf. Telefonnummer' }[askPhone] || ''} per E-Mail an uns sowie Nachricht und Kontaktdaten an WhatsApp (Meta).`,
+      phoneLabel: 'Telefonnummer für unsere Rückmeldung',
+      phoneOptional: 'Telefonnummer für unsere Rückmeldung (optional)',
+      notified: 'Die Nachricht ist bei uns angekommen. Wir melden uns – auch wenn WhatsApp nicht klappt.',
+      notifyFailed: 'Die Nachricht konnte nicht an uns übermittelt werden. Bitte in WhatsApp absenden.',
     },
   };
 
@@ -505,6 +509,9 @@
     config.autoOpen = toSeconds(config.autoOpen);
     config.target = ['web', 'app'].includes(config.target) ? config.target : 'auto';
     config.theme = ['dark', 'auto'].includes(config.theme) ? config.theme : 'light';
+    if (config.askPhone === null || config.askPhone === undefined || config.askPhone === '') {
+      config.askPhone = config.notifyUrl ? 'required' : false; // a message without a number can't be answered
+    }
     config.askPhone = ['optional', 'required'].includes(config.askPhone) ? config.askPhone : false;
     if (config.askPhone && !config.notifyUrl) {
       console.warn(`${LOG_PREFIX} "askPhone" needs "notifyUrl", otherwise nobody receives the number. Ignored.`);
@@ -553,7 +560,7 @@
       });
 
       this.messagesEl = el('div', { className: 'waw-messages', role: 'log', 'aria-live': 'polite' });
-      const defaultNotice = config.notifyUrl ? t.privacyNotify(Boolean(config.askPhone)) : t.privacy;
+      const defaultNotice = config.notifyUrl ? t.privacyNotify(config.askPhone) : t.privacy;
       const notice = config.privacyNotice === null ? defaultNotice : String(config.privacyNotice);
       if (notice) {
         const noticeEl = el('p', { className: 'waw-notice', text: `${notice} ` });
@@ -738,10 +745,7 @@
       this.input.value = '';
       this.updateComposer();
 
-      const info = el('div', { className: 'waw-bubble info', text: `${this.t.opened} ` });
-      info.append(el('a', { href: url, target: '_blank', rel: 'noopener', text: this.t.reopen }));
-      this.messagesEl.append(info);
-      this.scrollToBottom();
+      this.addInfo(this.t.opened, { href: url, text: this.t.reopen });
     }
 
     /**
@@ -752,9 +756,20 @@
     notify({ message, phone }) {
       const body = new URLSearchParams({ message, page: window.location.origin + window.location.pathname });
       if (phone) body.append('phone', phone);
+      const done = (ok, status) => {
+        this.addInfo(ok ? this.t.notified : this.t.notifyFailed);
+        this.emit('notify', { ok, status });
+      };
       fetch(this.config.notifyUrl, { method: 'POST', body, keepalive: true, credentials: 'omit' })
-        .then((response) => this.emit('notify', { ok: response.ok, status: response.status }))
-        .catch(() => this.emit('notify', { ok: false, status: 0 }));
+        .then((response) => done(response.ok, response.status))
+        .catch(() => done(false, 0));
+    }
+
+    addInfo(text, link) {
+      const info = el('div', { className: 'waw-bubble info', text: link ? `${text} ` : text });
+      if (link) info.append(el('a', { href: link.href, target: '_blank', rel: 'noopener', text: link.text }));
+      this.messagesEl.append(info);
+      this.scrollToBottom();
     }
 
     isComposerValid() {
