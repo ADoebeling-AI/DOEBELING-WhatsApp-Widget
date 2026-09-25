@@ -91,16 +91,26 @@ function waw_input(string $name, int $maxLength = 4000): string
     return strlen($value) > $maxLength ? '' : $value;
 }
 
+/** Language for pages: from the token if known, otherwise from the browser. */
+function waw_request_lang(?array $token = null): string
+{
+    if (in_array($token['l'] ?? null, ['de', 'en'], true)) {
+        return $token['l'];
+    }
+    return str_starts_with(strtolower((string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '')), 'de') ? 'de' : 'en';
+}
+
 /** Minimal HTML page for the confirmation and revocation steps. */
-function waw_page(string $title, string $bodyHtml, int $status = 200): never
+function waw_page(string $title, string $bodyHtml, int $status = 200, string $lang = 'en'): never
 {
     http_response_code($status);
     header('Content-Type: text/html; charset=UTF-8');
     header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'");
     $title = waw_html($title);
+    $lang = $lang === 'de' ? 'de' : 'en';
     echo <<<HTML
     <!DOCTYPE html>
-    <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <html lang="{$lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex"><title>{$title}</title>
     <style>
       body{margin:0;background:#f7f5f0;color:#1d2327;font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -439,6 +449,21 @@ function waw_text(string $lang, string $id, array $vars = []): string
             'page' => 'Page',
             'time' => 'Time',
             'stop' => 'Stop these notifications',
+            'expired_title' => 'Link expired',
+            'expired_body' => 'This confirmation link is invalid or older than 24 hours. Please request a new one in the configurator.',
+            'confirm_title' => 'Confirm e-mail notifications',
+            'confirm_body' => 'Messages from the WhatsApp widget on <strong>{domains}</strong> will be sent to <strong>{email}</strong>.',
+            'confirm_dpa' => 'By confirming, you accept the <a href="{dpa_url}">data processing agreement</a> (version {dpa}).',
+            'confirm_button' => 'Confirm',
+            'used_title' => 'Already confirmed',
+            'used_body' => 'This link has already been used. Your site key is in the e-mail we sent after the confirmation.',
+            'invalid_title' => 'Invalid link',
+            'invalid_body' => 'This link is invalid.',
+            'revoke_title' => 'Stop e-mail notifications',
+            'revoke_body' => 'After this step, messages from the WhatsApp widget on <strong>{domains}</strong> are no longer sent by e-mail. The widget itself keeps working. You can request a new site key in the configurator at any time.',
+            'revoke_button' => 'Stop notifications',
+            'revoked_title' => 'Notifications stopped',
+            'revoked_body' => 'E-mail notifications for <strong>{domains}</strong> are switched off.',
         ],
         'de' => [
             'verify_subject' => 'E-Mail-Benachrichtigungen für dein WhatsApp-Widget bestätigen',
@@ -453,6 +478,21 @@ function waw_text(string $lang, string $id, array $vars = []): string
             'page' => 'Seite',
             'time' => 'Zeit',
             'stop' => 'Diese Benachrichtigungen abschalten',
+            'expired_title' => 'Link abgelaufen',
+            'expired_body' => 'Dieser Bestätigungslink ist ungültig oder älter als 24 Stunden. Bitte fordere im Konfigurator einen neuen an.',
+            'confirm_title' => 'E-Mail-Benachrichtigungen bestätigen',
+            'confirm_body' => 'Nachrichten aus dem WhatsApp-Widget auf <strong>{domains}</strong> gehen an <strong>{email}</strong>.',
+            'confirm_dpa' => 'Mit der Bestätigung akzeptierst du den <a href="{dpa_url}">Vertrag zur Auftragsverarbeitung</a> (Version {dpa}).',
+            'confirm_button' => 'Bestätigen',
+            'used_title' => 'Bereits bestätigt',
+            'used_body' => 'Dieser Link wurde schon verwendet. Deinen Site-Key findest du in der E-Mail, die wir dir nach der Bestätigung geschickt haben.',
+            'invalid_title' => 'Ungültiger Link',
+            'invalid_body' => 'Dieser Link ist ungültig.',
+            'revoke_title' => 'E-Mail-Benachrichtigungen abschalten',
+            'revoke_body' => 'Danach werden Nachrichten aus dem WhatsApp-Widget auf <strong>{domains}</strong> nicht mehr per E-Mail verschickt. Das Widget selbst funktioniert weiter. Einen neuen Site-Key kannst du jederzeit im Konfigurator anfordern.',
+            'revoke_button' => 'Benachrichtigungen abschalten',
+            'revoked_title' => 'Benachrichtigungen abgeschaltet',
+            'revoked_body' => 'Die E-Mail-Benachrichtigungen für <strong>{domains}</strong> sind abgeschaltet.',
         ],
     ];
     $text = $texts[$lang][$id] ?? $texts['en'][$id];
