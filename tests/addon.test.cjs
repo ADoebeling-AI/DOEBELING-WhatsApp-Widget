@@ -126,7 +126,8 @@ const $ = (page, sel) => page.locator(`whatsapp-widget ${sel}`);
     await $(page, '.waw-input').fill('Hello, we need a new logo for our bakery.');
     await page.screenshot({ path: shot('ex4-addon.png') });
     await $(page, '.waw-send').click();
-    await page.waitForTimeout(300);
+    // The request is sent after the proof of work, which can take a few seconds.
+    await page.waitForFunction(() => document.querySelector('.demo-log').textContent.includes('whatsapp-widget:notify'), null, { timeout: 30000 });
     const log = await page.locator('.demo-log').innerText();
     assert.ok(log.includes('POST /whatsapp-notify.php (demo, not sent) – body: message='), log);
     assert.ok(log.includes('phone=%2B49+176+12345678'), log);

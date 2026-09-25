@@ -1,5 +1,5 @@
-# Runs the tests, then deploys the website and the notification service to the web server
-# via rsync over SSH.
+# Runs the tests, builds the site (main plus all release tags, see tools/build-site.sh)
+# and deploys it to the web server via rsync over SSH.
 # Setup: see "Deployment" in README.md.
 
 name: Deploy
@@ -7,6 +7,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
   workflow_dispatch:
 
 permissions:
@@ -34,7 +35,15 @@ jobs:
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
     steps:
+      # Always build from main with all tags, also when a tag was pushed,
+      # so that a release never rolls back the rest of the site.
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Build site
+        run: tools/build-site.sh "$RUNNER_TEMP/site"
 
       - name: Check deployment settings
         id: settings
@@ -82,12 +91,10 @@ jobs:
           # Protected files ("P") are never deleted on the server, even though they are not in the repository.
           rsync --recursive --links --checksum --compress --delete --itemize-changes \
             --chmod=D755,F644 \
-            --exclude='.git/' --exclude='.github/' --exclude='.gitignore' \
-            --exclude='README.md' --exclude='addons/' --exclude='tests/' --exclude='api/config.sample.php' \
             --filter='P /.htaccess' --filter='P /.user.ini' --filter='P /.well-known/' \
             --filter='P /dpa.html' --filter='P /api/config.php' \
             -e "ssh -p ${DEPLOY_PORT:-22} -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
-            ./ "$DEPLOY_USER@$DEPLOY_HOST:${DEPLOY_PATH%/}/"
+            "$RUNNER_TEMP/site/" "$DEPLOY_USER@$DEPLOY_HOST:${DEPLOY_PATH%/}/"
 
       - name: Remove SSH key
         if: always()

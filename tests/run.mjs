@@ -13,7 +13,7 @@ const PORT = 8767;
 const ADDON_PORT = 8766;
 const BASE = `http://127.0.0.1:${PORT}`;
 const ADDON_BASE = `http://127.0.0.1:${ADDON_PORT}`;
-const SUITES = ['widget.test.cjs', 'addon.test.cjs', 'addon-http.test.cjs', 'service.test.cjs'];
+const SUITES = ['widget.test.cjs', 'addon.test.cjs', 'addon-http.test.cjs', 'service.test.cjs', 'build.test.cjs'];
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'waw-test-'));
 const mail = path.join(tmp, 'mail.txt');
