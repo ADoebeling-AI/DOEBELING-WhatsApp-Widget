@@ -20,6 +20,8 @@ return [
     'sender_name' => 'WhatsApp Widget',
 
     // Writable directory OUTSIDE the web root for rate limits and revoked keys.
+    // The default works when this file lies next to the web root (see README).
+    // If you use api/config.php instead, change it to a path outside the web root.
     'storage_dir' => __DIR__ . '/whatsapp-widget-storage',
 
     // Data processing agreement (Art. 28 GDPR) that site owners accept when they confirm.
