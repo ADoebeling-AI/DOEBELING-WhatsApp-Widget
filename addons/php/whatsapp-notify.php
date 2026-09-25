@@ -39,6 +39,10 @@ $config = [
     // Empty: only pages on the same host as this script.
     'allowed_origins' => [],
 
+    // Reject messages without the visitor's phone number. Keep this in line with the
+    // widget option data-ask-phone (default with data-notify-url: "required").
+    'phone_required' => true,
+
     // Used to turn national numbers ("0176 …") into a WhatsApp link ("49176 …").
     'default_country_code' => '49',
 
@@ -156,7 +160,7 @@ $length = function_exists('mb_strlen') ? mb_strlen($message, 'UTF-8') : strlen($
 if ($message === '' || $length > $config['max_message_length']) {
     respond(422);
 }
-if ($phone !== '' && !isPlausiblePhone($phone)) {
+if ($phone === '' ? $config['phone_required'] : !isPlausiblePhone($phone)) {
     respond(422);
 }
 if ($page !== '' && (strlen($page) > 500 || !preg_match('#^https?://#i', $page))) {

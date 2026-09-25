@@ -31,24 +31,25 @@
     <h2>Example 4: Optional e-mail notification</h2>
     <p>The widget itself needs no server. If you want an e-mail for every message, upload the add-on
       <a href="https://github.com/DOEBELING/WhatsApp-Widget/blob/main/addons/php/whatsapp-notify.php"><code>whatsapp-notify.php</code></a>
-      to your own web server (PHP 8.1+) and point the widget to it:</p>
+      to your own web server (PHP 8.1+), enter your e-mail address and point the widget to it:</p>
     <pre><code>&lt;script src="/js/whatsapp-widget.js"
         data-phone="+49 000 0000000"
         data-name="Studio Example"
         data-welcome="Hello! Tell us about your project.|We usually reply within a day."
         data-notify-url="/whatsapp-notify.php"
-        data-ask-phone="optional"
         data-privacy-url="/privacy"
         defer&gt;&lt;/script&gt;</code></pre>
     <ul>
       <li><code>data-notify-url</code>: “Send” posts the message to this URL and then opens WhatsApp.</li>
-      <li><code>data-ask-phone</code>: <code>optional</code> or <code>required</code> shows a field for the visitor's number.
-        The e-mail contains a link to reply on WhatsApp.</li>
-      <li>The privacy notice in the chat changes automatically: it says that the message is transmitted to you.
-        Link your privacy policy with <code>data-privacy-url</code>.</li>
+      <li>With <code>data-notify-url</code>, the chat asks for the visitor's phone number (required by default).
+        If WhatsApp Web is not set up on the visitor's computer, you still get the message and can call back.
+        The e-mail contains a link to reply on WhatsApp. Use <code>data-ask-phone="optional"</code> or
+        <code>"false"</code> to change this.</li>
+      <li>The privacy notice in the chat changes automatically: it says that message and phone number go to you by
+        e-mail. Link your privacy policy with <code>data-privacy-url</code>.</li>
     </ul>
-    <p class="note">GitHub Pages cannot run PHP. On this page, the small log in the bottom left corner shows the request
-      instead of sending it.</p>
+    <p class="note">This demo does not send e-mails. The small log in the bottom left corner shows the request instead
+      of sending it.</p>
   </section>
 
   <section>
@@ -79,7 +80,6 @@ Time: 2026-09-25 17:52:20 CEST</code></pre>
         data-name="Studio Example"
         data-welcome="Hello! Tell us about your project.|We usually reply within a day."
         data-notify-url="/whatsapp-notify.php"
-        data-ask-phone="optional"
         data-privacy-url="#privacy"
         defer></script>
 </body>
