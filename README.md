@@ -273,6 +273,37 @@ examples, widget and the notification service in [`api/`](api). To run it on you
 
 [`api/.htaccess`](api/.htaccess) blocks direct access to `lib.php` and a local `config.php` on Apache.
 
+### Deployment
+
+Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml): it checks the
+PHP and JavaScript syntax and copies the site to the server with rsync over SSH. You can also start it
+by hand under *Actions → Deploy → Run workflow*. Until the secrets are set, the workflow deploys nothing
+and only shows a notice.
+
+1. Create a key pair only for deployments, without passphrase:
+   `ssh-keygen -t ed25519 -N "" -C "github-deploy whatsapp-widget" -f deploy_key`
+2. Add `deploy_key.pub` to the SSH keys of the web server account.
+3. Get the host key of the server and compare its fingerprint with the one your hoster shows:
+   `ssh-keyscan -p 22 your-server.example`
+4. In the repository settings, add these secrets under *Settings → Secrets and variables → Actions*
+   (or as secrets of the environment `production`):
+
+   | Secret | Example | Notes |
+   | --- | --- | --- |
+   | `DEPLOY_HOST` | `www123.your-server.de` | SSH host name |
+   | `DEPLOY_PORT` | `222` | Optional, default `22` |
+   | `DEPLOY_USER` | `name` | SSH user |
+   | `DEPLOY_PATH` | `/usr/www/users/name/whatsapp-widget` | Absolute path of the web root of the site, at least three levels deep |
+   | `DEPLOY_SSH_KEY` | content of `deploy_key` | Private key from step 1 |
+   | `DEPLOY_KNOWN_HOSTS` | output of step 3 | The workflow refuses unknown host keys |
+
+5. Delete `deploy_key` from your computer after you have stored it as a secret.
+
+What the workflow copies: everything except `.git/`, `.github/`, `README.md`, `addons/` and
+`api/config.sample.php`. It deletes files on the server that are no longer in the repository, but never
+`.htaccess`, `.user.ini`, `.well-known/`, `dpa.html` and `api/config.php` in the web root. Keep the
+configuration with the secret and the storage directory outside the web root anyway.
+
 ## Contributing
 
 Issues and pull requests are welcome. The widget is a single file without build step:
