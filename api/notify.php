@@ -67,7 +67,7 @@ if (preg_match('#^https?://#i', $page)) {
 $lines[] = waw_text($lang, 'time') . ': ' . date('Y-m-d H:i:s T');
 $lines[] = '';
 $lines[] = waw_text($lang, 'stop') . ': ' . $config['base_url'] . '/api/revoke.php?t='
-    . waw_seal('revoke', ['i' => $key['i'], 'd' => $key['d']]);
+    . waw_seal('revoke', ['i' => $key['i'], 'd' => $key['d'], 'l' => $lang]);
 
 $sent = waw_mail($key['e'], waw_text($lang, 'notify_subject'), implode("\n", $lines));
 waw_fail($sent ? 204 : 500);
