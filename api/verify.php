@@ -17,27 +17,25 @@ $method = waw_method('GET', 'POST');
 $token = waw_input('t', 8000);
 $request = waw_unseal('verify', $token);
 
+$lang = waw_request_lang($request);
+
 if ($request === null || ($request['x'] ?? 0) < time()) {
-    waw_page('Link expired', '<p>This confirmation link is invalid or older than 24 hours. Please request a new one in the configurator.</p>', 410);
+    waw_page(waw_text($lang, 'expired_title'), '<p>' . waw_text($lang, 'expired_body') . '</p>', 410, $lang);
 }
 
 $domains = implode(', ', $request['d']);
 
 if ($method === 'GET') {
-    waw_page('Confirm e-mail notifications', sprintf(
-        '<p>Messages from the WhatsApp widget on <strong>%s</strong> will be sent to <strong>%s</strong>.</p>'
-        . '<p class="muted">By confirming, you accept the <a href="%s">data processing agreement</a> (version %s).</p>'
-        . '<form method="post"><input type="hidden" name="t" value="%s"><button type="submit">Confirm</button></form>',
-        waw_html($domains),
-        waw_html($request['e']),
-        waw_html($config['dpa_url']),
-        waw_html($config['dpa_version']),
-        waw_html($token)
-    ));
+    waw_page(waw_text($lang, 'confirm_title'),
+        '<p>' . waw_text($lang, 'confirm_body', ['domains' => waw_html($domains), 'email' => waw_html($request['e'])]) . '</p>'
+        . '<p class="muted">' . waw_text($lang, 'confirm_dpa', ['dpa_url' => waw_html($config['dpa_url']), 'dpa' => waw_html($config['dpa_version'])]) . '</p>'
+        . '<form method="post"><input type="hidden" name="t" value="' . waw_html($token) . '">'
+        . '<button type="submit">' . waw_text($lang, 'confirm_button') . '</button></form>',
+        200, $lang);
 }
 
 if (!waw_once('verify|' . $token, 2 * 86400)) {
-    waw_page('Already confirmed', '<p>This link has already been used. Your site key is in the e-mail we sent after the confirmation.</p>', 409);
+    waw_page(waw_text($lang, 'used_title'), '<p>' . waw_text($lang, 'used_body') . '</p>', 409, $lang);
 }
 
 $keyId = bin2hex(random_bytes(8));
@@ -45,18 +43,18 @@ $siteKey = waw_seal('key', [
     'i' => $keyId,
     'e' => $request['e'],
     'd' => $request['d'],
-    'l' => $request['l'],
+    'l' => $lang,
     'a' => time(),               // time of confirmation
     'p' => $config['dpa_version'], // accepted version of the data processing agreement
 ]);
-$revokeLink = $config['base_url'] . '/api/revoke.php?t=' . waw_seal('revoke', ['i' => $keyId, 'd' => $request['d']]);
+$revokeLink = $config['base_url'] . '/api/revoke.php?t=' . waw_seal('revoke', ['i' => $keyId, 'd' => $request['d'], 'l' => $lang]);
 
-waw_mail($request['e'], waw_text($request['l'], 'key_subject'), waw_text($request['l'], 'key_body', [
+waw_mail($request['e'], waw_text($lang, 'key_subject'), waw_text($lang, 'key_body', [
     'domains' => $domains,
     'snippet' => waw_snippet($request['o'], $siteKey),
     'revoke' => $revokeLink,
 ]));
 
 $setup = waw_b64u_encode(json_encode(['k' => $siteKey, 'o' => (object) $request['o']], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
-header('Location: ' . $config['base_url'] . '/#setup=' . $setup, true, 303);
+header('Location: ' . $config['base_url'] . '/?lang=' . $lang . '#setup=' . $setup, true, 303);
 exit;
