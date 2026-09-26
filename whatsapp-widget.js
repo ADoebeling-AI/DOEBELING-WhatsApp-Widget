@@ -5,6 +5,7 @@
  *
  * Looks like a live chat, but only opens WhatsApp (app or web) with a
  * prefilled message. No backend, no cookies, no tracking, no external requests.
+ * Optional: notify your own server (see addons/php/) before WhatsApp opens.
  *
  * WhatsApp icon: Font Awesome Free 6 by @fontawesome - https://fontawesome.com
  * License: CC BY 4.0 - https://fontawesome.com/license/free
@@ -36,6 +37,9 @@
     privacyNotice: null,  // null = localised default, '' = hide
     privacyUrl: '',       // link to your privacy policy
     typing: true,         // "typing…" animation before welcome messages
+    notifyUrl: '',        // optional self-hosted endpoint that receives the message (see addons/php/)
+    askPhone: null,       // 'required' | 'optional' | false - visitor's number; default 'required' with notifyUrl
+    countryCode: '+49',   // the phone field starts with this country code; numbers need one
   };
 
   const I18N = {
@@ -43,29 +47,37 @@
       open: 'Open WhatsApp chat',
       close: 'Close chat',
       placeholder: 'Type a message',
-      inputLabel: 'Your message',
+      inputLabel: 'Message',
       send: 'Send',
       typing: 'typing…',
-      privacy: 'Nothing you type here is stored or transmitted. “Send” opens WhatsApp, where the privacy policy of WhatsApp (Meta) applies.',
+      privacy: 'Nothing is transmitted before you click “Send”. After that, your message and contact details go to WhatsApp (Meta).',
       privacyLink: 'Privacy policy',
       opened: 'WhatsApp has been opened in a new tab. Please send your message there.',
       openWhatsApp: 'Open WhatsApp',
       locked: 'Continue in WhatsApp',
       unread: (n) => `${n} unread message${n === 1 ? '' : 's'}`,
+      privacyNotify: (askPhone) => `Nothing is transmitted before you click “Send”. After that, your message${{ required: ' and phone number', optional: ' and phone number (if given)' }[askPhone] || ''} go${askPhone ? '' : 'es'} to us by e-mail, and your message and contact details go to WhatsApp (Meta).`,
+      phoneLabel: 'Your phone/WhatsApp number',
+      phoneOptional: 'Your phone/WhatsApp number (optional)',
+      notifyFailed: 'Your message could not be sent to us. Please send it in WhatsApp.',
     },
     de: {
       open: 'WhatsApp-Chat öffnen',
       close: 'Chat schließen',
       placeholder: 'Nachricht schreiben',
-      inputLabel: 'Deine Nachricht',
+      inputLabel: 'Nachricht',
       send: 'Senden',
       typing: 'schreibt …',
-      privacy: 'Hier wird nichts gespeichert oder übertragen. „Senden“ öffnet WhatsApp – dort gilt die Datenschutzerklärung von WhatsApp (Meta).',
+      privacy: 'Vor dem Klick auf „Senden“ wird nichts übertragen. Danach gehen Nachricht und Kontaktdaten an WhatsApp (Meta).',
       privacyLink: 'Datenschutzerklärung',
-      opened: 'WhatsApp wurde in einem neuen Tab geöffnet. Bitte sende deine Nachricht dort ab.',
+      opened: 'WhatsApp wurde in einem neuen Tab geöffnet. Bitte die Nachricht dort absenden.',
       openWhatsApp: 'WhatsApp öffnen',
       locked: 'Weiter in WhatsApp',
       unread: (n) => `${n} ungelesene Nachricht${n === 1 ? '' : 'en'}`,
+      privacyNotify: (askPhone) => `Vor dem Klick auf „Senden“ wird nichts übertragen. Danach gehen Nachricht${{ required: ' und Telefonnummer', optional: ' und ggf. Telefonnummer' }[askPhone] || ''} per E-Mail an uns sowie Nachricht und Kontaktdaten an WhatsApp (Meta).`,
+      phoneLabel: 'Telefon-/WhatsApp-Nummer',
+      phoneOptional: 'Telefon-/WhatsApp-Nummer (optional)',
+      notifyFailed: 'Die Nachricht konnte nicht an uns übermittelt werden. Bitte in WhatsApp absenden.',
     },
   };
 
@@ -268,11 +280,26 @@
     /* Composer */
     .waw-composer {
       display: flex;
+      flex-wrap: wrap;
       align-items: flex-end;
       gap: 8px;
       padding: 8px 10px 10px;
       background: var(--_panel-bg);
     }
+    .waw-phone {
+      flex: 1 0 100%;
+      height: 38px;
+      padding: 0 14px;
+      border: 0;
+      border-radius: 19px;
+      background: var(--_input-bg);
+      color: var(--_text);
+      font: inherit;
+      font-size: 14px;
+      outline: none;
+    }
+    .waw-phone::placeholder { color: var(--_muted); }
+    .waw-phone[aria-invalid="true"] { box-shadow: inset 0 0 0 2px #e53935; }
     .waw-input {
       flex: 1;
       min-height: 42px;
@@ -438,6 +465,27 @@
     return phone;
   }
 
+  /**
+   * Brings the visitor's number into international format: "0049 176 ..." and
+   * "0176 ..." become "+49 176 ..." (with the configured country code), and the
+   * leading 0 in "+49 0176 ..." is dropped.
+   */
+  function normalizeVisitorPhone(value, countryCode) {
+    let phone = String(value || '').trim().replace(/\(0\)/g, '').replace(/\s+/g, ' ');
+    if (phone.startsWith('00')) phone = `+${phone.slice(2)}`;
+    else if (phone.startsWith('0')) phone = `${countryCode} ${phone.slice(1)}`;
+    if (phone.startsWith(countryCode)) {
+      phone = phone.replace(new RegExp(`^\\${countryCode}[\\s./-]*0(?=\\d)`), `${countryCode} `);
+    }
+    return phone;
+  }
+
+  /** The visitor's number must be international: "+", country code, 8-15 digits. */
+  function isPlausiblePhone(value) {
+    const digits = value.replace(/\D/g, '');
+    return /^\+[1-9][\d\s()./-]*$/.test(value) && digits.length >= 8 && digits.length <= 15;
+  }
+
   function buildUrl(phone, text, target) {
     const message = encodeURIComponent(text || '');
     switch (target) {
@@ -491,6 +539,9 @@
       privacyNotice: data.privacyNotice,
       privacyUrl: data.privacyUrl,
       typing: data.typing,
+      notifyUrl: data.notifyUrl,
+      askPhone: data.askPhone,
+      countryCode: data.countryCode,
     };
   }
 
@@ -519,6 +570,19 @@
     config.autoOpen = toSeconds(config.autoOpen);
     config.target = ['web', 'app'].includes(config.target) ? config.target : 'auto';
     config.theme = ['dark', 'auto'].includes(config.theme) ? config.theme : 'light';
+    if (config.askPhone === null || config.askPhone === undefined || config.askPhone === '') {
+      config.askPhone = config.notifyUrl ? 'required' : false; // a message without a number can't be answered
+    }
+    config.askPhone = ['optional', 'required'].includes(config.askPhone) ? config.askPhone : false;
+    const countryCode = String(config.countryCode || '').replace(/\D/g, '');
+    config.countryCode = /^[1-9]\d{0,2}$/.test(countryCode) ? `+${countryCode}` : DEFAULTS.countryCode;
+    if (config.askPhone && !config.notifyUrl) {
+      console.warn(`${LOG_PREFIX} "askPhone" needs "notifyUrl", otherwise nobody receives the number. Ignored.`);
+      config.askPhone = false;
+    }
+    if (config.notifyUrl && !config.privacyUrl) {
+      console.warn(`${LOG_PREFIX} With "notifyUrl" the message is sent to your server. Please set "privacyUrl".`);
+    }
     return config;
   }
 
@@ -564,7 +628,8 @@
       });
 
       this.messagesEl = el('div', { className: 'waw-messages', role: 'log', 'aria-live': 'polite' });
-      const notice = config.privacyNotice === null ? t.privacy : String(config.privacyNotice);
+      const defaultNotice = config.notifyUrl ? t.privacyNotify(config.askPhone) : t.privacy;
+      const notice = config.privacyNotice === null ? defaultNotice : String(config.privacyNotice);
       if (notice) {
         const noticeEl = el('p', { className: 'waw-notice', text: `${notice} ` });
         if (config.privacyUrl) {
@@ -590,6 +655,25 @@
         this.input,
         this.sendButton,
       ]);
+      if (config.askPhone) {
+        const phoneLabel = config.askPhone === 'required' ? t.phoneLabel : t.phoneOptional;
+        this.phoneInput = el('input', {
+          id: 'waw-phone',
+          className: 'waw-phone',
+          type: 'tel',
+          autocomplete: 'tel',
+          inputmode: 'tel',
+          placeholder: phoneLabel,
+          value: `${config.countryCode} `,
+          required: config.askPhone === 'required',
+        });
+        this.phoneInput.addEventListener('input', () => this.updateComposer());
+        this.phoneInput.addEventListener('blur', () => {
+          this.phoneInput.value = this.visitorPhone() || `${config.countryCode} `;
+          this.updateComposer();
+        });
+        this.form.prepend(el('label', { className: 'waw-sr', for: 'waw-phone', text: phoneLabel }), this.phoneInput);
+      }
 
       this.window = el('section', {
         className: 'waw-window',
@@ -714,9 +798,14 @@
       const message = this.input.value.trim();
       if (!message || this.locked) return;
 
+      if (!this.isComposerValid()) return;
+
       const url = buildUrl(this.config.phone, message, this.config.target);
-      const proceed = this.emit('send', { message, url }, true);
+      const phone = this.visitorPhone();
+      const proceed = this.emit('send', { message, url, phone }, true);
       if (!proceed) return;
+
+      if (this.config.notifyUrl) this.notify({ message, phone });
 
       // Open WhatsApp synchronously inside the click/keypress handler,
       // otherwise browsers treat it as an unwanted popup.
@@ -724,8 +813,7 @@
 
       this.addBubble('out', message);
       this.lock(url);
-      this.messagesEl.append(el('div', { className: 'waw-bubble info', text: this.t.opened }));
-      this.scrollToBottom();
+      this.addInfo(this.t.opened);
     }
 
     openWhatsApp(url) {
@@ -736,11 +824,14 @@
     // After "Send" the conversation continues in WhatsApp: the input is locked and
     // the send button becomes an "Open WhatsApp" button with the same message.
     lock(url) {
-      const hadFocus = this.root.activeElement === this.input;
+      const hadFocus = [this.input, this.phoneInput].includes(this.root.activeElement);
       this.locked = true;
       this.input.value = '';
-      this.input.disabled = true;
-      this.input.hidden = true;
+      for (const field of [this.input, this.phoneInput]) {
+        if (!field) continue;
+        field.disabled = true;
+        field.hidden = true;
+      }
       this.sendButton.hidden = true;
       this.openButton = el('button', { type: 'button', className: 'waw-open' }, [
         el('span', { html: ICONS.whatsapp }),
@@ -766,6 +857,43 @@
       this.launcher.classList.remove('is-pulsing');
       void this.launcher.offsetWidth; // restart the animation
       this.launcher.classList.add('is-pulsing');
+    }
+
+    /**
+     * Sends the message to the optional self-hosted endpoint (see addons/php/).
+     * Uses a "simple" form POST (no CORS preflight) with keepalive, so the request
+     * finishes even if the page navigates to the WhatsApp app. Sends no cookies.
+     */
+    notify({ message, phone }) {
+      const body = new URLSearchParams({ message, page: window.location.origin + window.location.pathname });
+      if (phone) body.append('phone', phone);
+      const done = (ok, status) => {
+        if (!ok) this.addInfo(this.t.notifyFailed);
+        this.emit('notify', { ok, status });
+      };
+      fetch(this.config.notifyUrl, { method: 'POST', body, keepalive: true, credentials: 'omit' })
+        .then((response) => done(response.ok, response.status))
+        .catch(() => done(false, 0));
+    }
+
+    addInfo(text) {
+      this.messagesEl.append(el('div', { className: 'waw-bubble info', text }));
+      this.scrollToBottom();
+    }
+
+    isComposerValid() {
+      if (this.input.value.trim().length === 0) return false;
+      if (!this.phoneInput) return true;
+      const phone = this.visitorPhone();
+      if (!phone) return this.config.askPhone !== 'required';
+      return isPlausiblePhone(phone);
+    }
+
+    // The visitor's number in international format; '' if only the country code is filled in.
+    visitorPhone() {
+      if (!this.phoneInput) return '';
+      const phone = normalizeVisitorPhone(this.phoneInput.value, this.config.countryCode);
+      return phone === this.config.countryCode ? '' : phone;
     }
 
     async playWelcome() {
@@ -800,7 +928,11 @@
     }
 
     updateComposer() {
-      this.sendButton.disabled = this.input.value.trim().length === 0;
+      this.sendButton.disabled = !this.isComposerValid();
+      if (this.phoneInput) {
+        const phone = this.visitorPhone();
+        this.phoneInput.setAttribute('aria-invalid', String(Boolean(phone) && !isPlausiblePhone(phone)));
+      }
       this.input.style.height = 'auto';
       this.input.style.height = `${Math.min(this.input.scrollHeight, 120)}px`;
     }
