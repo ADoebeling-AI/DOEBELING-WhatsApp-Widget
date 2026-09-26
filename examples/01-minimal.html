@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Example 1: Minimal setup – WhatsApp Widget</title>
+  <link rel="stylesheet" href="assets/examples.css">
+  <!-- Demo helper, not needed on your site -->
+  <script src="assets/demo.js"></script>
+</head>
+<body>
+
+<nav class="demo-nav" aria-label="Examples">
+  <strong>WhatsApp Widget examples</strong>
+  <a href="01-minimal.html" aria-current="page">1 · Minimal</a>
+  <a href="02-external-button.html">2 · Own buttons</a>
+  <a href="03-javascript-api.html">3 · JavaScript API (DE)</a>
+  <a href="../">Documentation</a>
+</nav>
+
+<main class="page">
+  <header class="hero">
+    <h1>Riverside Bakery</h1>
+    <p>A fictional website. Click the green button in the bottom right corner to open the chat.</p>
+  </header>
+
+  <section>
+    <h2>Example 1: Minimal setup</h2>
+    <p>One <code>&lt;script&gt;</code> tag is all you need. The widget adds a floating WhatsApp button.
+      A click opens a chat window that looks and feels like WhatsApp. When the visitor presses
+      “Send”, WhatsApp opens with the message already filled in.</p>
+    <pre><code>&lt;script src="https://whatsapp-widget.doebeling.dev/whatsapp-widget.js"
+        data-phone="+49 000 0000000"
+        data-name="Riverside Bakery"
+        data-status="Usually replies within an hour"
+        data-welcome="Hi there! 👋 How can we help you?"
+        defer&gt;&lt;/script&gt;</code></pre>
+    <p>Only <code>data-phone</code> is required. Use the international format with country code.</p>
+  </section>
+
+  <section>
+    <h2>What happens with the data?</h2>
+    <ul>
+      <li>The widget does not send anything to a server, sets no cookies and loads no external files.</li>
+      <li>The message stays in the browser until the visitor presses “Send”.</li>
+      <li>“Send” opens <code>https://wa.me/…?text=…</code>. From this moment on, WhatsApp (Meta) processes the data.</li>
+    </ul>
+    <p class="note">The example uses the placeholder number <code>+49 000 0000000</code>. The small log in the bottom left
+      corner shows the WhatsApp link instead of opening it.</p>
+  </section>
+</main>
+
+<script src="../whatsapp-widget.js"
+        data-phone="+49 000 0000000"
+        data-name="Riverside Bakery"
+        data-status="Usually replies within an hour"
+        data-welcome="Hi there! 👋 How can we help you?"
+        defer></script>
+</body>
+</html>

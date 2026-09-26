@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Example 2: Open with your own buttons – WhatsApp Widget</title>
+  <link rel="stylesheet" href="assets/examples.css">
+  <!-- Demo helper, not needed on your site -->
+  <script src="assets/demo.js" data-log="right"></script>
+</head>
+<body>
+
+<nav class="demo-nav" aria-label="Examples">
+  <strong>WhatsApp Widget examples</strong>
+  <a href="01-minimal.html">1 · Minimal</a>
+  <a href="02-external-button.html" aria-current="page">2 · Own buttons</a>
+  <a href="03-javascript-api.html">3 · JavaScript API (DE)</a>
+  <a href="../">Documentation</a>
+</nav>
+
+<main class="page">
+  <header class="hero">
+    <h1>Green Thumb Garden Shop</h1>
+    <p>A fictional shop without a floating button. The chat opens only from buttons and links on the page.</p>
+    <a class="button" href="https://wa.me/490000000000" data-wa-open>
+      <svg viewBox="0 0 448 512" aria-hidden="true"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6z"/></svg>
+      Ask us on WhatsApp
+    </a>
+  </header>
+
+  <section>
+    <h2>Example 2: Open the chat with your own buttons</h2>
+    <p>Set <code>data-launcher="false"</code> to hide the floating button. Then add
+      <code>data-wa-open</code> to any link or button on your page:</p>
+    <pre><code>&lt;!-- Works without JavaScript, too: the link goes straight to WhatsApp --&gt;
+&lt;a href="https://wa.me/490000000000" data-wa-open&gt;Ask us on WhatsApp&lt;/a&gt;
+
+&lt;!-- The value is used as the prefilled message --&gt;
+&lt;button data-wa-open="Hi, is the olive tree (1.5 m) in stock?"&gt;Ask about this product&lt;/button&gt;
+
+&lt;script src="https://whatsapp-widget.doebeling.dev/whatsapp-widget.js"
+        data-phone="+49 000 0000000"
+        data-name="Green Thumb Garden Shop"
+        data-welcome="Hello! Which plant are you interested in?"
+        data-launcher="false"
+        data-position="left"
+        defer&gt;&lt;/script&gt;</code></pre>
+  </section>
+
+  <section>
+    <h2>Buttons with a prefilled message</h2>
+    <div class="card-grid">
+      <article class="card">
+        <h3>Olive tree</h3>
+        <p>1.5 m, in a terracotta pot</p>
+        <button class="button secondary" type="button" data-wa-open="Hi, is the olive tree (1.5 m) in stock?">Ask about this product</button>
+      </article>
+      <article class="card">
+        <h3>Lavender</h3>
+        <p>Set of 6 plants, organic</p>
+        <button class="button secondary" type="button" data-wa-open="Hi, do you ship the organic lavender set?">Ask about this product</button>
+      </article>
+      <article class="card">
+        <h3>Garden service</h3>
+        <p>Planting and care on site</p>
+        <button class="button secondary" type="button" data-wa-open="Hi, I would like an appointment for the garden service.">Request an appointment</button>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Control the chat with JavaScript</h2>
+    <p>
+      <button class="button secondary" type="button" onclick="WhatsAppWidget.open()">WhatsAppWidget.open()</button>
+      <button class="button secondary" type="button" onclick="WhatsAppWidget.close()">WhatsAppWidget.close()</button>
+      <button class="button secondary" type="button" onclick="WhatsAppWidget.toggle()">WhatsAppWidget.toggle()</button>
+    </p>
+    <pre><code>WhatsAppWidget.open();                                  // open the chat
+WhatsAppWidget.open({ message: 'I have a question' });  // open with a prefilled message
+WhatsAppWidget.close();
+WhatsAppWidget.toggle();</code></pre>
+  </section>
+</main>
+
+<script src="../whatsapp-widget.js"
+        data-phone="+49 000 0000000"
+        data-name="Green Thumb Garden Shop"
+        data-welcome="Hello! Which plant are you interested in?"
+        data-launcher="false"
+        data-position="left"
+        defer></script>
+</body>
+</html>

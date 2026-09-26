@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Beispiel 3: Konfiguration per JavaScript – WhatsApp Widget</title>
+  <link rel="stylesheet" href="assets/examples.css">
+  <!-- Demo-Helfer, auf deiner Website nicht nötig -->
+  <script src="assets/demo.js"></script>
+</head>
+<body>
+
+<nav class="demo-nav" aria-label="Beispiele">
+  <strong>WhatsApp Widget examples</strong>
+  <a href="01-minimal.html">1 · Minimal</a>
+  <a href="02-external-button.html">2 · Own buttons</a>
+  <a href="03-javascript-api.html" aria-current="page">3 · JavaScript API (DE)</a>
+  <a href="../">Documentation</a>
+</nav>
+
+<main class="page">
+  <header class="hero">
+    <h1>Musterschreinerei</h1>
+    <p>Eine fiktive deutsche Website. Der Chat öffnet sich nach 3 Sekunden von selbst
+      (nur auf großen Bildschirmen) und zeigt drei Begrüßungsnachrichten.</p>
+  </header>
+
+  <section>
+    <h2>Beispiel 3: Alle Optionen per JavaScript</h2>
+    <p>Statt <code>data-*</code>-Attributen kannst du das Widget auch per JavaScript konfigurieren.
+      Das ist praktisch, wenn die Werte aus einem CMS kommen oder du mehrere Begrüßungstexte brauchst.</p>
+    <pre><code>&lt;script src="https://whatsapp-widget.doebeling.dev/whatsapp-widget.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  WhatsAppWidget.init({
+    phone: '+49 000 0000000',
+    name: 'Max Mustermann',
+    status: 'Musterschreinerei · antwortet meist am selben Tag',
+    avatar: 'assets/avatar.svg',          // lokal hosten, keine externen Bilder
+    welcome: [
+      'Hallo und willkommen in der Musterschreinerei! 👋',
+      'Planen Sie eine Küche, einen Einbauschrank oder eine Reparatur?',
+      'Schreiben Sie uns einfach – gern auch mit Maßen oder Fotos.',
+    ],
+    placeholder: 'Ihre Nachricht an uns …',
+    lang: 'de',
+    autoOpen: 3,                          // Sekunden, nur auf großen Bildschirmen
+    color: '#8a4b20',                     // Kopfzeile, Button und Senden-Knopf
+    theme: 'auto',                        // folgt dem Hell/Dunkel-Modus des Systems
+    privacyUrl: '/datenschutz',
+  });
+&lt;/script&gt;</code></pre>
+  </section>
+
+  <section>
+    <h2>Events für eigene Auswertungen</h2>
+    <p>Das Widget selbst trackt nichts. Wenn du z. B. eine datensparsame Statistik (Matomo o. ä.) nutzt,
+      kannst du auf diese Events reagieren:</p>
+    <pre><code>document.addEventListener('whatsapp-widget:open',  (e) =&gt; console.log('geöffnet', e.detail.auto));
+document.addEventListener('whatsapp-widget:close', ()  =&gt; console.log('geschlossen'));
+document.addEventListener('whatsapp-widget:send',  (e) =&gt; {
+  console.log('gesendet', e.detail.message, e.detail.url);
+  // e.preventDefault() verhindert, dass WhatsApp geöffnet wird
+});</code></pre>
+    <p class="note">Das Beispiel nutzt die Platzhalter-Nummer <code>+49 000 0000000</code>. Das kleine Protokoll unten links
+      zeigt die Events und den WhatsApp-Link, statt ihn zu öffnen.</p>
+  </section>
+</main>
+
+<script src="../whatsapp-widget.js"></script>
+<script>
+  WhatsAppWidget.init({
+    phone: '+49 000 0000000',
+    name: 'Max Mustermann',
+    status: 'Musterschreinerei · antwortet meist am selben Tag',
+    avatar: 'assets/avatar.svg',
+    welcome: [
+      'Hallo und willkommen in der Musterschreinerei! 👋',
+      'Planen Sie eine Küche, einen Einbauschrank oder eine Reparatur?',
+      'Schreiben Sie uns einfach – gern auch mit Maßen oder Fotos.',
+    ],
+    placeholder: 'Ihre Nachricht an uns …',
+    lang: 'de',
+    autoOpen: 3,
+    color: '#8a4b20',
+    theme: 'auto',
+    privacyUrl: '/datenschutz',
+  });
+</script>
+</body>
+</html>
