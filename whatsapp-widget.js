@@ -185,7 +185,8 @@
     .waw-avatar svg { width: 22px; height: 22px; fill: currentColor; }
     .waw-contact { flex: 1; min-width: 0; }
     .waw-name { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .waw-status { font-size: 13px; opacity: .85; min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .waw-status { font-size: 13px; line-height: 1.3; opacity: .85; min-height: 1.3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .waw-status:empty { display: none; } /* no status line: the name is centred */
     .waw-close {
       flex: 0 0 40px; width: 40px; height: 40px;
       display: grid; place-items: center;
