@@ -39,6 +39,7 @@
     typing: true,         // "typing…" animation before welcome messages
     notifyUrl: '',        // optional self-hosted endpoint that receives the message (see addons/php/)
     askPhone: null,       // 'required' | 'optional' | false - visitor's number; default 'required' with notifyUrl
+    countryCode: '+49',   // the phone field starts with this country code; numbers need one
   };
 
   const I18N = {
@@ -56,9 +57,8 @@
       locked: 'Continue in WhatsApp',
       unread: (n) => `${n} unread message${n === 1 ? '' : 's'}`,
       privacyNotify: (askPhone) => `Nothing is transmitted before you click “Send”. After that, your message${{ required: ' and phone number', optional: ' and phone number (if given)' }[askPhone] || ''} go${askPhone ? '' : 'es'} to us by e-mail, and your message and contact details go to WhatsApp (Meta).`,
-      phoneLabel: 'Phone number, so we can reply',
-      phoneOptional: 'Phone number (optional), so we can reply',
-      notified: 'Your message has reached us. We will get back to you, even if WhatsApp does not work.',
+      phoneLabel: 'Your phone/WhatsApp number',
+      phoneOptional: 'Your phone/WhatsApp number (optional)',
       notifyFailed: 'Your message could not be sent to us. Please send it in WhatsApp.',
     },
     de: {
@@ -75,9 +75,8 @@
       locked: 'Weiter in WhatsApp',
       unread: (n) => `${n} ungelesene Nachricht${n === 1 ? '' : 'en'}`,
       privacyNotify: (askPhone) => `Vor dem Klick auf „Senden“ wird nichts übertragen. Danach gehen Nachricht${{ required: ' und Telefonnummer', optional: ' und ggf. Telefonnummer' }[askPhone] || ''} per E-Mail an uns sowie Nachricht und Kontaktdaten an WhatsApp (Meta).`,
-      phoneLabel: 'Telefonnummer für unsere Rückmeldung',
-      phoneOptional: 'Telefonnummer für unsere Rückmeldung (optional)',
-      notified: 'Die Nachricht ist bei uns angekommen. Wir melden uns – auch wenn WhatsApp nicht klappt.',
+      phoneLabel: 'Telefon-/WhatsApp-Nummer',
+      phoneOptional: 'Telefon-/WhatsApp-Nummer (optional)',
       notifyFailed: 'Die Nachricht konnte nicht an uns übermittelt werden. Bitte in WhatsApp absenden.',
     },
   };
@@ -466,10 +465,25 @@
     return phone;
   }
 
-  /** Lenient check for the visitor's own number (national or international format). */
+  /**
+   * Brings the visitor's number into international format: "0049 176 ..." and
+   * "0176 ..." become "+49 176 ..." (with the configured country code), and the
+   * leading 0 in "+49 0176 ..." is dropped.
+   */
+  function normalizeVisitorPhone(value, countryCode) {
+    let phone = String(value || '').trim().replace(/\(0\)/g, '').replace(/\s+/g, ' ');
+    if (phone.startsWith('00')) phone = `+${phone.slice(2)}`;
+    else if (phone.startsWith('0')) phone = `${countryCode} ${phone.slice(1)}`;
+    if (phone.startsWith(countryCode)) {
+      phone = phone.replace(new RegExp(`^\\${countryCode}[\\s./-]*0(?=\\d)`), `${countryCode} `);
+    }
+    return phone;
+  }
+
+  /** The visitor's number must be international: "+", country code, 8-15 digits. */
   function isPlausiblePhone(value) {
     const digits = value.replace(/\D/g, '');
-    return /^\+?[\d\s()./-]+$/.test(value) && digits.length >= 6 && digits.length <= 15;
+    return /^\+[1-9][\d\s()./-]*$/.test(value) && digits.length >= 8 && digits.length <= 15;
   }
 
   function buildUrl(phone, text, target) {
@@ -527,6 +541,7 @@
       typing: data.typing,
       notifyUrl: data.notifyUrl,
       askPhone: data.askPhone,
+      countryCode: data.countryCode,
     };
   }
 
@@ -559,6 +574,8 @@
       config.askPhone = config.notifyUrl ? 'required' : false; // a message without a number can't be answered
     }
     config.askPhone = ['optional', 'required'].includes(config.askPhone) ? config.askPhone : false;
+    const countryCode = String(config.countryCode || '').replace(/\D/g, '');
+    config.countryCode = /^[1-9]\d{0,2}$/.test(countryCode) ? `+${countryCode}` : DEFAULTS.countryCode;
     if (config.askPhone && !config.notifyUrl) {
       console.warn(`${LOG_PREFIX} "askPhone" needs "notifyUrl", otherwise nobody receives the number. Ignored.`);
       config.askPhone = false;
@@ -647,9 +664,14 @@
           autocomplete: 'tel',
           inputmode: 'tel',
           placeholder: phoneLabel,
+          value: `${config.countryCode} `,
           required: config.askPhone === 'required',
         });
         this.phoneInput.addEventListener('input', () => this.updateComposer());
+        this.phoneInput.addEventListener('blur', () => {
+          this.phoneInput.value = this.visitorPhone() || `${config.countryCode} `;
+          this.updateComposer();
+        });
         this.form.prepend(el('label', { className: 'waw-sr', for: 'waw-phone', text: phoneLabel }), this.phoneInput);
       }
 
@@ -779,7 +801,7 @@
       if (!this.isComposerValid()) return;
 
       const url = buildUrl(this.config.phone, message, this.config.target);
-      const phone = this.phoneInput ? this.phoneInput.value.trim() : '';
+      const phone = this.visitorPhone();
       const proceed = this.emit('send', { message, url, phone }, true);
       if (!proceed) return;
 
@@ -846,7 +868,7 @@
       const body = new URLSearchParams({ message, page: window.location.origin + window.location.pathname });
       if (phone) body.append('phone', phone);
       const done = (ok, status) => {
-        this.addInfo(ok ? this.t.notified : this.t.notifyFailed);
+        if (!ok) this.addInfo(this.t.notifyFailed);
         this.emit('notify', { ok, status });
       };
       fetch(this.config.notifyUrl, { method: 'POST', body, keepalive: true, credentials: 'omit' })
@@ -862,9 +884,16 @@
     isComposerValid() {
       if (this.input.value.trim().length === 0) return false;
       if (!this.phoneInput) return true;
-      const phone = this.phoneInput.value.trim();
+      const phone = this.visitorPhone();
       if (!phone) return this.config.askPhone !== 'required';
       return isPlausiblePhone(phone);
+    }
+
+    // The visitor's number in international format; '' if only the country code is filled in.
+    visitorPhone() {
+      if (!this.phoneInput) return '';
+      const phone = normalizeVisitorPhone(this.phoneInput.value, this.config.countryCode);
+      return phone === this.config.countryCode ? '' : phone;
     }
 
     async playWelcome() {
@@ -901,7 +930,7 @@
     updateComposer() {
       this.sendButton.disabled = !this.isComposerValid();
       if (this.phoneInput) {
-        const phone = this.phoneInput.value.trim();
+        const phone = this.visitorPhone();
         this.phoneInput.setAttribute('aria-invalid', String(Boolean(phone) && !isPlausiblePhone(phone)));
       }
       this.input.style.height = 'auto';

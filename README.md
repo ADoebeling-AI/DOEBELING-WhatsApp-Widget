@@ -78,6 +78,7 @@ Use `data-*` attributes on the script tag, or pass the same options (in camelCas
 | `data-privacy-notice` | `privacyNotice` | localised | Your own privacy notice. An empty value hides it. |
 | `data-notify-url` | `notifyUrl` | – | URL of your [PHP add-on](#optional-e-mail-notification-php-add-on). “Send” posts the message there first. |
 | `data-ask-phone` | `askPhone` | `required` with `notify-url` | Asks for the visitor's phone number: `required`, `optional` or `false`. Only works with `notify-url`. |
+| `data-country-code` | `countryCode` | `+49` | The phone field starts with this country code. The number must be international; `0176 …` becomes `+49 176 …`. |
 
 Example with JavaScript:
 
@@ -149,15 +150,17 @@ not on GitHub Pages.
            defer></script>
    ```
 
-   The chat now asks for the visitor's phone number (required). So you can call back even if the
-   visitor never sends the message in WhatsApp. Use `data-ask-phone="optional"` or `"false"` to change
-   this, and set `phone_required` in the PHP file to match.
+   The chat now asks for the visitor's phone or WhatsApp number (required). So you can call back even if
+   the visitor never sends the message in WhatsApp. The field starts with `+49`; use `data-country-code`
+   for another country. Use `data-ask-phone="optional"` or `"false"` to change this, and set
+   `phone_required` in the PHP file to match.
 
 3. Update your privacy policy: with the add-on, the message (and phone number) goes to your server
    and mailbox before WhatsApp opens.
 
 When the visitor presses “Send”, the widget posts the message to the add-on and opens WhatsApp at the
-same time. The chat confirms that the message has reached you. You get an e-mail like this:
+same time. If the request fails, the chat asks the visitor to send the message in WhatsApp.
+You get an e-mail like this:
 
 ```text
 New message via the WhatsApp widget
@@ -165,7 +168,7 @@ New message via the WhatsApp widget
 Hello, we need a new logo for our bakery.
 
 ---
-Phone: 0176 123 456 78
+Phone: +49 176 123 456 78
 Reply on WhatsApp: https://wa.me/4917612345678
 Page: https://www.example.com/services
 Time: 2026-09-25 17:52:20 CEST
