@@ -139,6 +139,7 @@ function mails() {
   const notification = all[all.length - 1];
   assert.ok(notification.head.includes('To: owner@example.com'));
   assert.ok(notification.body.includes('Habt ihr Dinkelbrötchen?'));
+  assert.ok(notification.body.includes('Telefon: +49 176 123 456 78'), notification.body);
   assert.ok(notification.body.includes('Auf WhatsApp antworten: https://wa.me/4917612345678'));
   assert.ok(notification.body.includes(`Diese Benachrichtigungen abschalten: ${BASE}/api/revoke.php?t=`));
   ok('widget with site key: proof of work, notify 204, mail to the owner only');

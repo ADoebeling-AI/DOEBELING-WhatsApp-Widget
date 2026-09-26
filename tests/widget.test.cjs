@@ -24,24 +24,52 @@ const ok = (name) => { results.push(`PASS ${name}`); };
     return { page, errors, context };
   }
 
+  const shadow = (page, fn) => page.evaluate(`(() => { const r = document.querySelector('whatsapp-widget').shadowRoot; return ${fn}; })()`);
+
+  // --- Example 1: opened before the first message arrives -----------------------------
+  {
+    const { page, errors } = await newPage({ viewport: { width: 1280, height: 800 } });
+    await page.goto(EXAMPLES + '01-minimal.html');
+    await page.waitForTimeout(500);
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-badge').count(), 0, 'no badge before the delay');
+    await page.locator('whatsapp-widget .waw-launcher').click();
+    await page.waitForTimeout(100);
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-dots').count(), 1, 'first message is being typed');
+    await page.waitForSelector('whatsapp-widget .waw-bubble.in >> text=How can we help', { timeout: 5000 });
+    await page.waitForTimeout(6000);
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-badge').count(), 0, 'no badge after an early open');
+    assert.strictEqual(await shadow(page, "r.querySelectorAll('.waw-bubble.in').length"), 1, 'message not added twice');
+    ok('ex1 opened early: first message typed, no badge later');
+    assert.deepStrictEqual(errors, []);
+  }
+
   // --- Example 1: minimal, launcher -------------------------------------------------
   {
     const { page, errors } = await newPage({ viewport: { width: 1280, height: 800 } });
     await page.goto(EXAMPLES + '01-minimal.html');
     const launcher = page.locator('whatsapp-widget .waw-launcher');
     await assert.ok(await launcher.isVisible(), 'launcher visible');
-    assert.strictEqual(await page.locator('whatsapp-widget .waw-badge').innerText().then(t => t.split('\n')[0]), '1');
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-badge').count(), 0, 'no badge at first');
     assert.ok(!(await page.locator('whatsapp-widget .waw-window').isVisible()), 'window hidden initially');
-    ok('ex1 launcher + badge, window hidden');
+    await page.waitForSelector('whatsapp-widget .waw-badge', { timeout: 8000 });
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-badge').innerText().then(t => t.split('\n')[0]), '1');
+    assert.ok(await shadow(page, "r.querySelector('.waw-launcher').classList.contains('is-pulsing')"), 'launcher pulses');
+    assert.strictEqual(await shadow(page, "r.querySelectorAll('.waw-bubble.in').length"), 1, 'first message already in the chat');
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: shot('ex1-badge.png') });
+    await page.waitForTimeout(800);
+    assert.ok(!(await shadow(page, "r.querySelector('.waw-launcher').classList.contains('is-pulsing')")), 'pulses only once');
+    ok('ex1 launcher, window hidden; after 6 s badge "1", one pulse, first message arrived');
 
     await launcher.click();
     await page.waitForSelector('whatsapp-widget .waw-bubble.in >> text=How can we help', { timeout: 5000 });
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-dots').count(), 0, 'no typing for the arrived message');
     assert.strictEqual(await launcher.getAttribute('aria-expanded'), 'true');
     assert.strictEqual(await page.locator('whatsapp-widget .waw-badge').count(), 0);
     const focused = await page.evaluate(() => document.querySelector('whatsapp-widget').shadowRoot.activeElement?.className);
     assert.strictEqual(focused, 'waw-input');
     assert.strictEqual(await page.locator('whatsapp-widget .waw-status').innerText(), 'Usually replies within an hour');
-    ok('ex1 open: welcome typed, focus in input, status restored');
+    ok('ex1 open: first message already there, focus in input, status restored');
 
     const send = page.locator('whatsapp-widget .waw-send');
     assert.ok(await send.isDisabled(), 'send disabled when empty');
@@ -56,17 +84,26 @@ const ok = (name) => { results.push(`PASS ${name}`); };
     await page.waitForSelector('whatsapp-widget .waw-bubble.out');
     await page.waitForTimeout(100);
     assert.strictEqual(openCalls[0], 'https://wa.me/490000000000?text=Do%20you%20have%20gluten-free%20bread%20%26%20rolls%3F');
-    assert.strictEqual(await page.locator('whatsapp-widget .waw-input').inputValue(), '');
-    assert.ok(await page.locator('whatsapp-widget .waw-bubble.info a').getAttribute('href').then(h => h.startsWith('https://wa.me/490000000000')));
-    ok('ex1 send via Enter: correct wa.me URL, input cleared, fallback link');
+    const input = page.locator('whatsapp-widget .waw-input');
+    assert.ok(await input.isDisabled() && !(await input.isVisible()), 'input locked');
+    assert.ok(!(await send.isVisible()), 'send button replaced');
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-locked').innerText(), 'Continue in WhatsApp');
+    const openButton = page.locator('whatsapp-widget .waw-open');
+    assert.strictEqual((await openButton.innerText()).trim(), 'Open WhatsApp');
+    assert.strictEqual(await shadow(page, 'r.activeElement && r.activeElement.className'), 'waw-open', 'focus on "Open WhatsApp"');
+    await openButton.click();
+    assert.deepStrictEqual(openCalls, [openCalls[0], openCalls[0]], '"Open WhatsApp" opens the same link');
+    await page.evaluate(() => WhatsAppWidget.open({ message: 'second message' }));
+    assert.strictEqual(await input.inputValue(), '', 'no new message after "Send"');
+    ok('ex1 send via Enter: correct wa.me URL, input locked, "Open WhatsApp" opens it again');
     await page.mouse.move(10, 400);
-    await page.locator('whatsapp-widget .waw-input').blur();
+    await openButton.blur();
     await page.waitForTimeout(300);
     await page.screenshot({ path: shot('ex1-sent.png') });
     const b = await page.locator('whatsapp-widget .waw').boundingBox();
     await page.screenshot({ path: shot('preview.png'), clip: { x: b.x - 30, y: b.y - 30, width: b.width + 50, height: b.height + 50 } });
 
-    await page.locator('whatsapp-widget .waw-input').focus();
+    await openButton.focus();
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
     assert.ok(!(await page.locator('whatsapp-widget .waw-window').isVisible()), 'closed via Escape');
@@ -188,6 +225,28 @@ const ok = (name) => { results.push(`PASS ${name}`); };
     await page.waitForTimeout(100);
     assert.strictEqual(await page.evaluate(() => window.__xss), undefined);
     ok('welcome text is escaped (no HTML injection)');
+    // Without a status line the name is centred in the header
+    await page.evaluate(() => WhatsAppWidget.init({ phone: '+49 911 123456', name: 'Studio', welcome: ['Hi'], typing: false, badge: false }));
+    await page.waitForTimeout(50);
+    await page.evaluate(() => WhatsAppWidget.open({ focus: false }));
+    await page.waitForTimeout(400);
+    const header = await shadow(page, "(() => { const h = r.querySelector('.waw-header').getBoundingClientRect(); const n = r.querySelector('.waw-name').getBoundingClientRect(); return { h: h.top + h.height / 2, n: n.top + n.height / 2 }; })()");
+    assert.ok(Math.abs(header.h - header.n) < 1.5, `name centred: ${JSON.stringify(header)}`);
+    ok('no status: name centred in the header');
+
+    // Badge options: own delay, second message typed after opening; no badge at all
+    await page.evaluate(() => WhatsAppWidget.init({ phone: '+49 911 123456', welcome: ['One', 'Two'], badgeDelay: 0.3 }));
+    await page.waitForSelector('whatsapp-widget .waw-badge', { timeout: 2000 });
+    await page.evaluate(() => WhatsAppWidget.open());
+    await page.waitForTimeout(100);
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-dots').count(), 1, 'second message is typed');
+    await page.waitForFunction(() => document.querySelector('whatsapp-widget').shadowRoot.querySelectorAll('.waw-bubble.in:not([aria-hidden])').length === 2, null, { timeout: 5000 });
+    await page.evaluate(() => WhatsAppWidget.init({ phone: '+49 911 123456', welcome: ['One'], badge: false, badgeDelay: 0 }));
+    await page.waitForTimeout(300);
+    assert.strictEqual(await page.locator('whatsapp-widget .waw-badge').count(), 0);
+    assert.strictEqual(await shadow(page, "r.querySelectorAll('.waw-bubble.in').length"), 0, 'nothing arrives without badge');
+    ok('badgeDelay sets the delay; badge: false shows no badge');
+
     await page.evaluate(() => WhatsAppWidget.destroy());
     assert.strictEqual(await page.locator('whatsapp-widget').count(), 0);
     ok('destroy removes the widget');

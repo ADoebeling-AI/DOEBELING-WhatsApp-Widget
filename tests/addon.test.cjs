@@ -42,18 +42,25 @@ const $ = (page, sel) => page.locator(`whatsapp-widget ${sel}`);
     assert.strictEqual(await $(page, '.waw-phone').getAttribute('required'), '');
     ok('notifyUrl: phone field required by default, add-on privacy notice');
 
+    assert.strictEqual(await $(page, '.waw-phone').inputValue(), '+49 ', 'phone field starts with the country code');
+    assert.strictEqual(await $(page, '.waw-phone').getAttribute('placeholder'), 'Telefon-/WhatsApp-Nummer');
     await $(page, '.waw-input').fill('Habt ihr Dinkelbrötchen?');
-    assert.ok(await $(page, '.waw-send').isDisabled(), 'required phone missing -> disabled');
-    await $(page, '.waw-phone').fill('abc');
-    assert.strictEqual(await $(page, '.waw-phone').getAttribute('aria-invalid'), 'true');
-    assert.ok(await $(page, '.waw-send').isDisabled());
+    assert.ok(await $(page, '.waw-send').isDisabled(), 'required phone missing (only +49) -> disabled');
+    assert.strictEqual(await $(page, '.waw-phone').getAttribute('aria-invalid'), 'false');
+    for (const invalid of ['abc', '176 1234567']) {
+      await $(page, '.waw-phone').fill(invalid);
+      assert.strictEqual(await $(page, '.waw-phone').getAttribute('aria-invalid'), 'true', invalid);
+      assert.ok(await $(page, '.waw-send').isDisabled(), invalid);
+    }
     await page.keyboard.press('Enter');
     assert.strictEqual(await page.evaluate(() => window.__opened.length), 0, 'Enter does not bypass validation');
-    ok('required phone: send disabled when missing/invalid, aria-invalid set');
+    ok('required phone: starts with +49, send disabled when missing, invalid or without country code');
 
     await $(page, '.waw-phone').fill('0176 123 456 78');
     assert.strictEqual(await $(page, '.waw-phone').getAttribute('aria-invalid'), 'false');
     assert.ok(!(await $(page, '.waw-send').isDisabled()));
+    await $(page, '.waw-input').focus();
+    assert.strictEqual(await $(page, '.waw-phone').inputValue(), '+49 176 123 456 78', 'national number gets the country code');
     await $(page, '.waw-send').click();
     await page.waitForFunction(() => window.__notify.length === 1, null, { timeout: 5000 });
     const notify = await page.evaluate(() => window.__notify[0]);
@@ -65,13 +72,15 @@ const $ = (page, sel) => page.locator(`whatsapp-widget ${sel}`);
     await page.waitForTimeout(300);
     const mail = fs.readFileSync(MAIL, 'utf8');
     assert.ok(mail.includes('Habt ihr Dinkelbrötchen?'), mail);
+    assert.ok(mail.includes('Phone: +49 176 123 456 78'), mail);
     assert.ok(mail.includes('Reply on WhatsApp: https://wa.me/4917612345678'));
     assert.ok(mail.includes(`Page: ${ORIGIN}/blank`));
     ok('mail received with message, phone, reply link and page');
-    assert.strictEqual(await $(page, '.waw-phone').inputValue(), '0176 123 456 78', 'phone kept for next message');
+    assert.ok(await $(page, '.waw-phone').isDisabled() && !(await $(page, '.waw-phone').isVisible()), 'phone field locked after "Send"');
+    assert.strictEqual((await $(page, '.waw-open').innerText()).trim(), 'WhatsApp öffnen');
     const infos = await $(page, '.waw-bubble.info').allInnerTexts();
-    assert.ok(infos.some((t) => t.startsWith('Die Nachricht ist bei uns angekommen.')), infos.join('|'));
-    ok('chat confirms that the message reached the owner');
+    assert.deepStrictEqual(infos, ['WhatsApp wurde in einem neuen Tab ge\u00f6ffnet. Bitte die Nachricht dort absenden.'], infos.join('|'));
+    ok('no "has reached us" notice; input and phone locked');
     assert.deepStrictEqual(errors, []);
     ok('no console errors');
   }
