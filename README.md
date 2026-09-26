@@ -32,6 +32,14 @@ That's it. Only `data-phone` is required. Use the international format with coun
 
 For the strictest privacy setup, [host the file yourself](#privacy-and-gdpr).
 
+### How the chat behaves
+
+1. After 6 seconds the first welcome message “arrives”: a red badge appears on the button and the
+   button pulses once. If the visitor opens the chat earlier, the first message is being typed.
+2. When the chat opens, the next welcome messages are typed one after the other.
+3. After “Send”, WhatsApp opens with the message. The input field is locked and the send button
+   becomes “Open WhatsApp”: the conversation continues in WhatsApp.
+
 ## Examples
 
 | Example | Shows |
@@ -56,7 +64,8 @@ Use `data-*` attributes on the script tag, or pass the same options (in camelCas
 | `data-lang` | `lang` | `<html lang>` | `en` or `de`. Falls back to the browser language, then English. |
 | `data-position` | `position` | `right` | `right` or `left`. |
 | `data-launcher` | `launcher` | `true` | `false` hides the floating button. Use your own buttons instead. |
-| `data-badge` | `badge` | `true` | Shows the number of welcome messages on the button until the chat is opened. |
+| `data-badge` | `badge` | `true` | Shows a badge on the button and pulses once when the first welcome message arrives. `false` shows neither; the welcome messages are typed when the chat opens. |
+| `data-badge-delay` | `badgeDelay` | `6` | Seconds until the first welcome message arrives. |
 | `data-auto-open` | `autoOpen` | `false` | Seconds until the chat opens by itself. Skipped on small screens. |
 | `data-typing` | `typing` | `true` | Shows “typing…” before each welcome message. |
 | `data-target` | `target` | `auto` | `auto` opens `wa.me`, `web` opens WhatsApp Web, `app` opens the installed app (`whatsapp://`). |

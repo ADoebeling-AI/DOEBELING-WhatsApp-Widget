@@ -27,7 +27,8 @@
     lang: '',             // 'de' | 'en'; empty = <html lang>, fallback 'en'
     position: 'right',    // 'right' | 'left'
     launcher: true,       // show the floating button
-    badge: true,          // show unread badge on the launcher until first open
+    badge: true,          // show an unread badge on the launcher when the first welcome message "arrives"
+    badgeDelay: 6,        // seconds until the first welcome message arrives (badge and one pulse)
     autoOpen: false,      // false | seconds until the chat opens by itself
     target: 'auto',       // 'auto' (wa.me) | 'web' (WhatsApp Web) | 'app' (whatsapp://)
     theme: 'light',       // 'light' | 'dark' | 'auto'
@@ -48,7 +49,8 @@
       privacy: 'Nothing you type here is stored or transmitted. “Send” opens WhatsApp, where the privacy policy of WhatsApp (Meta) applies.',
       privacyLink: 'Privacy policy',
       opened: 'WhatsApp has been opened in a new tab. Please send your message there.',
-      reopen: 'Open WhatsApp again',
+      openWhatsApp: 'Open WhatsApp',
+      locked: 'Continue in WhatsApp',
       unread: (n) => `${n} unread message${n === 1 ? '' : 's'}`,
     },
     de: {
@@ -61,7 +63,8 @@
       privacy: 'Hier wird nichts gespeichert oder übertragen. „Senden“ öffnet WhatsApp – dort gilt die Datenschutzerklärung von WhatsApp (Meta).',
       privacyLink: 'Datenschutzerklärung',
       opened: 'WhatsApp wurde in einem neuen Tab geöffnet. Bitte sende deine Nachricht dort ab.',
-      reopen: 'WhatsApp erneut öffnen',
+      openWhatsApp: 'WhatsApp öffnen',
+      locked: 'Weiter in WhatsApp',
       unread: (n) => `${n} ungelesene Nachricht${n === 1 ? '' : 'en'}`,
     },
   };
@@ -285,6 +288,20 @@
       outline: none;
     }
     .waw-input::placeholder { color: var(--_muted); }
+    .waw-locked {
+      flex: 1;
+      min-width: 0;
+      height: 42px;
+      padding: 10px 14px;
+      border-radius: 21px;
+      background: var(--_input-bg);
+      color: var(--_muted);
+      font-size: 15px;
+      line-height: 22px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .waw-send {
       flex: 0 0 42px; width: 42px; height: 42px;
       display: grid; place-items: center;
@@ -296,6 +313,19 @@
     .waw-send svg { width: 20px; height: 20px; fill: currentColor; margin-left: 2px; }
     .waw-send:disabled { opacity: .45; cursor: default; }
     .waw-send:not(:disabled):hover { transform: scale(1.06); }
+    .waw-open {
+      flex: 0 0 auto;
+      height: 42px;
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 0 14px;
+      border: 0; border-radius: 21px;
+      background: var(--_launcher);
+      color: #fff;
+      font-size: 14px; font-weight: 600;
+      white-space: nowrap;
+    }
+    .waw-open svg { width: 18px; height: 18px; fill: currentColor; }
+    .waw-open:hover { filter: brightness(1.06); }
 
     /* Launcher */
     .waw-launcher {
@@ -309,6 +339,15 @@
       transition: transform .2s ease;
     }
     .waw-launcher:hover { transform: scale(1.06); }
+    .waw-launcher.is-pulsing { animation: waw-pulse .8s ease-out; }
+    .waw-ring {
+      position: absolute; inset: 0;
+      border: 3px solid var(--_launcher);
+      border-radius: 50%;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .waw-launcher.is-pulsing .waw-ring { animation: waw-ring .8s ease-out; }
     .waw-launcher svg { width: 32px; height: 32px; fill: currentColor; }
     .waw-launcher .waw-icon-close { display: none; }
     .waw-launcher[aria-expanded="true"] .waw-icon-open { display: none; }
@@ -326,14 +365,17 @@
       line-height: 22px;
       text-align: center;
       box-shadow: 0 0 0 2px #fff;
+      animation: waw-pop .2s ease-out;
     }
 
     @keyframes waw-pop { from { opacity: 0; transform: translateY(4px); } }
     @keyframes waw-blink { 0%, 80%, 100% { opacity: .3; } 40% { opacity: 1; } }
+    @keyframes waw-pulse { 35% { transform: scale(1.12); } }
+    @keyframes waw-ring { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(1.6); } }
 
     @media (prefers-reduced-motion: reduce) {
       .waw-window, .waw-launcher, .waw-send { transition: none; }
-      .waw-bubble { animation: none; }
+      .waw-bubble, .waw-badge, .waw-launcher.is-pulsing, .waw-launcher.is-pulsing .waw-ring { animation: none; }
       .waw-dots span { animation: none; opacity: .6; }
     }
   `;
@@ -440,6 +482,7 @@
       position: data.position,
       launcher: data.launcher,
       badge: data.badge,
+      badgeDelay: data.badgeDelay,
       autoOpen: data.autoOpen,
       target: data.target,
       theme: data.theme,
@@ -469,6 +512,8 @@
     config.position = config.position === 'left' ? 'left' : 'right';
     config.launcher = toBoolean(config.launcher, true);
     config.badge = toBoolean(config.badge, true);
+    config.badgeDelay = toSeconds(config.badgeDelay);
+    if (config.badgeDelay === false) config.badgeDelay = DEFAULTS.badgeDelay;
     config.typing = toBoolean(config.typing, true);
     config.autoOpen = toSeconds(config.autoOpen);
     config.target = ['web', 'app'].includes(config.target) ? config.target : 'auto';
@@ -486,12 +531,17 @@
       this.t = I18N[config.lang];
       this.isOpen = false;
       this.welcomePlayed = false;
+      this.delivered = 0;   // welcome messages already in the chat before it was opened
+      this.locked = false;  // true after "Send": the conversation continues in WhatsApp
       this.timers = [];
       this.returnFocus = null;
       this.onDocumentClick = this.onDocumentClick.bind(this);
       this.render();
       document.addEventListener('click', this.onDocumentClick);
       if (config.autoOpen !== false) this.scheduleAutoOpen(config.autoOpen);
+      if (this.launcher && config.badge && config.welcome.length) {
+        this.later(() => this.deliverFirstMessage(), config.badgeDelay * 1000);
+      }
     }
 
     render() {
@@ -569,15 +619,13 @@
         this.launcher = el('button', {
           type: 'button', className: 'waw-launcher', 'aria-label': t.open, 'aria-expanded': 'false',
         }, [
+          el('span', { className: 'waw-ring', 'aria-hidden': 'true' }),
           el('span', { className: 'waw-icon-open', html: ICONS.whatsapp }),
           el('span', { className: 'waw-icon-close', html: ICONS.close }),
         ]);
-        const unread = config.welcome.length;
-        if (config.badge && unread) {
-          this.badge = el('span', { className: 'waw-badge', text: String(unread) });
-          this.badge.append(el('span', { className: 'waw-sr', text: `, ${t.unread(unread)}` }));
-          this.launcher.append(this.badge);
-        }
+        this.launcher.addEventListener('animationend', (event) => {
+          if (event.target === this.launcher) this.launcher.classList.remove('is-pulsing');
+        });
         this.launcher.addEventListener('click', () => this.toggle());
         wrapper.append(this.launcher);
       }
@@ -607,7 +655,7 @@
     // Public API ---------------------------------------------------------------
 
     open(options = {}) {
-      if (typeof options.message === 'string') this.input.value = options.message;
+      if (typeof options.message === 'string' && !this.locked) this.input.value = options.message;
       if (this.isOpen) {
         this.updateComposer();
         if (options.focus !== false) this.focusInput();
@@ -663,7 +711,7 @@
 
     send() {
       const message = this.input.value.trim();
-      if (!message) return;
+      if (!message || this.locked) return;
 
       const url = buildUrl(this.config.phone, message, this.config.target);
       const proceed = this.emit('send', { message, url }, true);
@@ -671,23 +719,58 @@
 
       // Open WhatsApp synchronously inside the click/keypress handler,
       // otherwise browsers treat it as an unwanted popup.
-      if (this.config.target === 'app') window.location.href = url;
-      else window.open(url, '_blank', 'noopener');
+      this.openWhatsApp(url);
 
       this.addBubble('out', message);
-      this.input.value = '';
-      this.updateComposer();
-
-      const info = el('div', { className: 'waw-bubble info', text: `${this.t.opened} ` });
-      info.append(el('a', { href: url, target: '_blank', rel: 'noopener', text: this.t.reopen }));
-      this.messagesEl.append(info);
+      this.lock(url);
+      this.messagesEl.append(el('div', { className: 'waw-bubble info', text: this.t.opened }));
       this.scrollToBottom();
+    }
+
+    openWhatsApp(url) {
+      if (this.config.target === 'app') window.location.href = url;
+      else window.open(url, '_blank', 'noopener');
+    }
+
+    // After "Send" the conversation continues in WhatsApp: the input is locked and
+    // the send button becomes an "Open WhatsApp" button with the same message.
+    lock(url) {
+      const hadFocus = this.root.activeElement === this.input;
+      this.locked = true;
+      this.input.value = '';
+      this.input.disabled = true;
+      this.input.hidden = true;
+      this.sendButton.hidden = true;
+      this.openButton = el('button', { type: 'button', className: 'waw-open' }, [
+        el('span', { html: ICONS.whatsapp }),
+        el('span', { text: this.t.openWhatsApp }),
+      ]);
+      this.openButton.addEventListener('click', () => this.openWhatsApp(url));
+      this.form.append(
+        el('div', { className: 'waw-locked', text: this.t.locked, title: this.t.locked }),
+        this.openButton,
+      );
+      if (hadFocus) this.openButton.focus({ preventScroll: true });
+    }
+
+    // The first welcome message "arrives" while the chat is still closed:
+    // badge, one pulse of the launcher, and the message is already in the chat.
+    deliverFirstMessage() {
+      if (this.isOpen || this.welcomePlayed) return;
+      this.addBubble('in', this.config.welcome[0]);
+      this.delivered = 1;
+      this.badge = el('span', { className: 'waw-badge', text: '1' });
+      this.badge.append(el('span', { className: 'waw-sr', text: `, ${this.t.unread(1)}` }));
+      this.launcher.append(this.badge);
+      this.launcher.classList.remove('is-pulsing');
+      void this.launcher.offsetWidth; // restart the animation
+      this.launcher.classList.add('is-pulsing');
     }
 
     async playWelcome() {
       this.welcomePlayed = true;
       const animate = this.config.typing && !prefersReducedMotion();
-      for (const message of this.config.welcome) {
+      for (const message of this.config.welcome.slice(this.delivered)) {
         if (animate) {
           this.statusEl.textContent = this.t.typing;
           const typing = el('div', { className: 'waw-bubble in', 'aria-hidden': 'true' }, [
@@ -722,7 +805,7 @@
     }
 
     focusInput() {
-      this.input.focus({ preventScroll: true });
+      (this.locked ? this.openButton : this.input).focus({ preventScroll: true });
     }
 
     scrollToBottom() {
